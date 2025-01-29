@@ -155,9 +155,10 @@ def generate_beacons(j_nodes, sf_size, eb_interval, asn, chs, r_chs, n_channels,
     sf_number = asn // sf_size
 
     if (scheme == 'P'):
-        #eb_prob = eb_prob_limit if (math.exp(-1 * (sf_number)) / n_channels) < eb_prob_limit) else math.exp(-1 * (sf_number)) / n_channels)
+        eb_prob = eb_prob_limit if (math.exp(-1 * (sf_number) / n_channels) < eb_prob_limit) else math.exp(-1 * (sf_number) / n_channels)
         #print_locked(asn / sf_size, math.exp(-1 * (sf_number) / n_channels))
-        ch_dict = {joined_node : chs[(asn + joined_node.start_channel) % n_channels] for joined_node in j_nodes if (random.random() <= (eb_prob_limit if (math.exp(-1 * (len(joined_node.children) ** 2) / n_channels) < eb_prob_limit) else math.exp(-1 * (len(joined_node.children) ** 2) / n_channels)) and (joined_node.last_eb < 0 or sf_number >= joined_node.last_eb + eb_interval))}
+        #ch_dict = {joined_node : chs[(asn + joined_node.start_channel) % n_channels] for joined_node in j_nodes if (random.random() <= (eb_prob_limit if (math.exp(-1 * (len(joined_node.children) ** 2) / n_channels) < eb_prob_limit) else math.exp(-1 * (len(joined_node.children) ** 2) / n_channels)) and (joined_node.last_eb < 0 or sf_number >= joined_node.last_eb + eb_interval))}
+        ch_dict = {joined_node : chs[(asn + joined_node.start_channel) % n_channels] for joined_node in j_nodes if (random.random() <= eb_prob and (joined_node.last_eb < 0 or sf_number >= joined_node.last_eb + eb_interval))}
         ch = list(ch_dict.values())
         jn = list(ch_dict.keys())
         [j.set_last_eb_details(sf_number, [c]) for c, j in zip(ch, jn)]
@@ -447,8 +448,8 @@ def main():
 
     [process.join() for process in processes]
     
-    print("\nThe total number of child processes executed are: {}.".format(len(processes)))
-    print_locked("\nThe total number of child processes executed are: {}.".format(len(processes)))
+    print("\n\nThe total number of child processes executed are: {}.".format(len(processes)))
+    print_locked("\n\nThe total number of child processes executed are: {}.".format(len(processes)))
     
 
 
