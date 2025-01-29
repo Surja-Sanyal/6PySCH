@@ -100,6 +100,8 @@ class node:
         self.chs = chs
         self.nbrs = []
         self.children = []
+        self.TxCount = 0
+        self.RxCount = 0
 
     def join(self, parent, height, asn, ch, slot, chs):
         self.joined = True
@@ -110,10 +112,12 @@ class node:
         self.joined_asn = asn
         self.joining_dur = asn - self.nbr_available_asn + 1 if (self.joined_asn < 0) else self.joined_asn
         self.chs = chs
+        self.RxCount = asn
 
     def set_last_eb_details(self, sf_number, freq):
         self.last_eb = sf_number
         self.last_eb_freq = freq
+        self.TxCount += 1
 
     def info(self):
         return self.parent, self.height
@@ -296,7 +300,9 @@ def DODAG_joining(joined_nodes, nodes, n_nodes, sf_size, eb_interval, chs, r_chs
     
     #print_locked("\nOut: {} has collisions: {}, at SF: {}, DODAG size: {} / {}.".format(scheme.upper(), collisions, asn // sf_size, end_dodag_size - 1, n_nodes))
 
-    return joined_nodes, asn - sf_size, collisions
+    txTotal, RxTotal = sum([node.TxCount for node in nodes]) / n_nodes, sum([node.TxCount for node in nodes]) / n_nodes
+
+    return joined_nodes, asn - sf_size, collisions, txTotal, RxTotal
 
 
 
@@ -332,13 +338,13 @@ def get_realdata(load):
 # Execute method #
 def execute_method(store, n_channels, sf_size, eb_interval, n_nodes, area, sims, lbr, nodes, chs, r_chs, eb_prob, mechanism, timeout, atp_level):
 
-    total_time, avg_time, avg_nbr_time, num_joined, num_collisions = 0, 0, 0, 0, 0
+    total_time, avg_time, avg_nbr_time, num_joined, num_collisions, TxAvg, RxAvg = 0, 0, 0, 0, 0, 0, 0
     
     for sim in range(sims):
 
         joined_nodes = [copy.deepcopy(lbr)]
         
-        joined_nodes, asn, collisions = DODAG_joining(joined_nodes, copy.deepcopy(nodes), n_nodes, sf_size, eb_interval, chs, r_chs, n_channels, eb_prob, asn = 0, scheme = mechanism, timeout = timeout, atp_level = atp_level)
+        joined_nodes, asn, collisions, txTotal, RxTotal = DODAG_joining(joined_nodes, copy.deepcopy(nodes), n_nodes, sf_size, eb_interval, chs, r_chs, n_channels, eb_prob, asn = 0, scheme = mechanism, timeout = timeout, atp_level = atp_level)
 
         # Print results #
         print_locked("\nPledges: {}, Area: {}, Slotframe: {}, EB-Interval: {}, Channels: {}.\n{} mechanism{}, sim: {}, Timestamp: {}, DODAG size: {}, Time: {}s, Collisions: {}, at SF: {}.".format(n_nodes, area, sf_size, eb_interval, n_channels, mechanism, (" level: " + str(atp_level)) if (mechanism == 'A') else "", sim + 1, datetime.datetime.now(), len(joined_nodes) - 1, asn / 100, collisions, asn // sf_size))
@@ -347,6 +353,8 @@ def execute_method(store, n_channels, sf_size, eb_interval, n_nodes, area, sims,
         # Compute stats #
         dodag_size = len(joined_nodes) - 1 if (len(joined_nodes) > 1) else 1
         total_time += asn
+        TxAvg += txTotal
+        RxAvg += RxTotal
         num_collisions += collisions
         num_joined += len(joined_nodes) - 1
         avg_time += round(asn / dodag_size, 2)
@@ -354,7 +362,7 @@ def execute_method(store, n_channels, sf_size, eb_interval, n_nodes, area, sims,
 
     # Save stats #
     fp = open(os.path.join(store, "Statistics", "_" + str(mechanism).lower() + ("_" + str(atp_level) if (mechanism == 'A') else "") + "_stats_.txt"), 'a')
-    np.savetxt(fp, [n_nodes, area, n_channels, sf_size, eb_interval, round(num_joined / sims, 0), round(total_time / sims, 2), round(avg_time / sims, 2), round(avg_nbr_time / sims, 2), round(num_collisions / sims, 2)], fmt="%s", delimiter=",", newline=",")
+    np.savetxt(fp, [n_nodes, area, n_channels, sf_size, eb_interval, round(num_joined / sims, 0), round(total_time / sims, 2), round(avg_time / sims, 2), round(avg_nbr_time / sims, 2), round(num_collisions / sims, 2), round(TxAvg / sims, 2), round(RxAvg / sims, 2)], fmt="%s", delimiter=",", newline=",")
     fp.write("\n")
     fp.close()
 
