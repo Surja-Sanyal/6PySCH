@@ -48,8 +48,8 @@ EB_PROB                 = 0.1                                           # EB pro
 COMM_RANGE              = 50                                            # Signal distance
 SLOTFRAME_SIZES         = [23, 41, 61, 83, 101]                         # Slots
 EB_INTERVALS            = [1, 2, 3, 4]                                  # Times slotframe
-NODES                   = list(range(200, 600 + 1, 100))                # Total nodes
-AREAS                   = list(range(100, 300 + 1, COMM_RANGE))         # Area range
+NODES                   = list(range(25, 500 + 1, 25))                # Total nodes
+AREAS                   = [100]#list(range(100, 300 + 1, COMM_RANGE))         # Area range
 CHANNELS                = list(range(4, 16 + 1, 4))                     # Channels
 ATP_LEVELS              = list(range(2, 8 + 1, 2))                      # ATP level
 MECHANISMS              = ['P', 'E', 'R', 'D', 'A']                     # Mechanisms
@@ -159,10 +159,10 @@ def generate_beacons(j_nodes, sf_size, eb_interval, asn, chs, r_chs, n_channels,
     sf_number = asn // sf_size
 
     if (scheme == 'P'):
-        eb_prob = eb_prob_limit if (math.exp(-1 * (sf_number) / n_channels) < eb_prob_limit) else math.exp(-1 * (sf_number) / n_channels)
+        #eb_prob = eb_prob_limit if (math.exp(-1 * (sf_number) / n_channels) < eb_prob_limit) else math.exp(-1 * (sf_number) / n_channels)
         #print_locked(asn / sf_size, math.exp(-1 * (sf_number) / n_channels))
-        #ch_dict = {joined_node : chs[(asn + joined_node.start_channel) % n_channels] for joined_node in j_nodes if (random.random() <= (eb_prob_limit if (math.exp(-1 * (len(joined_node.children) ** 2) / n_channels) < eb_prob_limit) else math.exp(-1 * (len(joined_node.children) ** 2) / n_channels)) and (joined_node.last_eb < 0 or sf_number >= joined_node.last_eb + eb_interval))}
-        ch_dict = {joined_node : chs[(asn + joined_node.start_channel) % n_channels] for joined_node in j_nodes if (random.random() <= eb_prob and (joined_node.last_eb < 0 or sf_number >= joined_node.last_eb + eb_interval))}
+        ch_dict = {joined_node : chs[(asn + joined_node.start_channel) % n_channels] for joined_node in j_nodes if (random.random() <= (eb_prob_limit / 10 if (math.exp(-1 * (sf_number * math.sqrt(1 + len(joined_node.children))) / n_channels) < eb_prob_limit / 10) else math.exp(-1 * (sf_number * math.sqrt(1 + len(joined_node.children))) / n_channels)) and (joined_node.last_eb < 0 or sf_number >= joined_node.last_eb + eb_interval))}
+        #ch_dict = {joined_node : chs[(asn + joined_node.start_channel) % n_channels] for joined_node in j_nodes if (random.random() <= eb_prob and (joined_node.last_eb < 0 or sf_number >= joined_node.last_eb + eb_interval))}
         ch = list(ch_dict.values())
         jn = list(ch_dict.keys())
         [j.set_last_eb_details(sf_number, [c]) for c, j in zip(ch, jn)]
@@ -261,10 +261,6 @@ def DODAG_joining(joined_nodes, nodes, n_nodes, sf_size, eb_interval, chs, r_chs
     collisions = 0
 
     while(len(joined_nodes) <= n_nodes):
-
-        if ((asn - sf_size) / 100 > timeout):
-            #print_locked("\n{} has very poor performance. Exiting joining process.".format(scheme.upper()))
-            break
             
         start_dodag_size = len(joined_nodes)
         
@@ -293,16 +289,17 @@ def DODAG_joining(joined_nodes, nodes, n_nodes, sf_size, eb_interval, chs, r_chs
 
         end_dodag_size = len(joined_nodes)
         
-        #if (asn > 0 and (asn // sf_size) % 1000 == 0):
-            #print_locked("\n{} has collisions: {}, at SF: {}, DODAG size: {}.".format(scheme.upper(), collisions, asn // sf_size, end_dodag_size - 1))
+        if (asn / 100 > timeout):
+            #print_locked("\n{} has very poor performance. Exiting joining process.".format(scheme.upper()))
+            break
         
         asn += sf_size
     
     #print_locked("\nOut: {} has collisions: {}, at SF: {}, DODAG size: {} / {}.".format(scheme.upper(), collisions, asn // sf_size, end_dodag_size - 1, n_nodes))
 
-    txTotal, RxTotal = sum([node.TxCount for node in nodes]) / n_nodes, sum([node.TxCount for node in nodes]) / n_nodes
+    TxTotal, RxTotal = sum([node.TxCount for node in joined_nodes]), sum([node.RxCount for node in joined_nodes])
 
-    return joined_nodes, asn - sf_size, collisions, txTotal, RxTotal
+    return joined_nodes, asn, collisions, TxTotal, RxTotal
 
 
 
@@ -344,7 +341,7 @@ def execute_method(store, n_channels, sf_size, eb_interval, n_nodes, area, sims,
 
         joined_nodes = [copy.deepcopy(lbr)]
         
-        joined_nodes, asn, collisions, txTotal, RxTotal = DODAG_joining(joined_nodes, copy.deepcopy(nodes), n_nodes, sf_size, eb_interval, chs, r_chs, n_channels, eb_prob, asn = 0, scheme = mechanism, timeout = timeout, atp_level = atp_level)
+        joined_nodes, asn, collisions, TxTotal, RxTotal = DODAG_joining(joined_nodes, copy.deepcopy(nodes), n_nodes, sf_size, eb_interval, chs, r_chs, n_channels, eb_prob, asn = 0, scheme = mechanism, timeout = timeout, atp_level = atp_level)
 
         # Print results #
         print_locked("\nPledges: {}, Area: {}, Slotframe: {}, EB-Interval: {}, Channels: {}.\n{} mechanism{}, sim: {}, Timestamp: {}, DODAG size: {}, Time: {}s, Collisions: {}, at SF: {}.".format(n_nodes, area, sf_size, eb_interval, n_channels, mechanism, (" level: " + str(atp_level)) if (mechanism == 'A') else "", sim + 1, datetime.datetime.now(), len(joined_nodes) - 1, asn / 100, collisions, asn // sf_size))
@@ -352,17 +349,17 @@ def execute_method(store, n_channels, sf_size, eb_interval, n_nodes, area, sims,
 
         # Compute stats #
         dodag_size = len(joined_nodes) - 1 if (len(joined_nodes) > 1) else 1
-        total_time += asn
-        TxAvg += txTotal
+        total_time += asn / 100
+        TxAvg += TxTotal
         RxAvg += RxTotal
         num_collisions += collisions
         num_joined += len(joined_nodes) - 1
-        avg_time += round(asn / dodag_size, 2)
-        avg_nbr_time += round(sum([each_node.joining_dur for each_node in joined_nodes]) / dodag_size, 2)
+        avg_time += sum([j_node.joined_asn for j_node in joined_nodes]) / dodag_size
+        avg_nbr_time += sum([each_node.joining_dur for each_node in joined_nodes]) / dodag_size
 
     # Save stats #
     fp = open(os.path.join(store, "Statistics", "_" + str(mechanism).lower() + ("_" + str(atp_level) if (mechanism == 'A') else "") + "_stats_.txt"), 'a')
-    np.savetxt(fp, [n_nodes, area, n_channels, sf_size, eb_interval, round(num_joined / sims, 0), round(total_time / sims, 2), round(avg_time / sims, 2), round(avg_nbr_time / sims, 2), round(num_collisions / sims, 2), round(TxAvg / sims, 2), round(RxAvg / sims, 2)], fmt="%s", delimiter=",", newline=",")
+    np.savetxt(fp, [n_nodes, area, n_channels, sf_size, eb_interval, num_joined / sims, total_time / sims, avg_time / sims, avg_nbr_time / sims, num_collisions / sims, TxAvg / sims, RxAvg / sims], fmt="%s", delimiter=",", newline=",")
     fp.write("\n")
     fp.close()
 
@@ -411,7 +408,7 @@ def main():
         
                 for n_nodes in reversed(num_nodes):
 
-                    for area in reversed(areas):
+                    for area in areas:
 
                         random.shuffle(chs)
                         #print_locked("\n\n\n\nPledges: {}, Area: {}, Slotframe: {}, EB-Interval: {}, Channels: {}, CHS: {}.".format(n_nodes, area, sf_size, eb_interval, n_channels, chs), end = "\n\n")
@@ -453,6 +450,12 @@ def main():
                             
                             print("\rPercent jobs completed / submitted: {:6.2f} % ({}) / {:6.2f} % ({}).".format(100 * (len(processes) - sum(1 for process in processes if (process.is_alive()))) / n_processes, (len(processes) - sum(1 for process in processes if (process.is_alive()))), 100 * len(processes) / n_processes, len(processes)), end = '')
 
+    while (sum(1 for process in processes if (process.is_alive())) != 0):
+
+        print("\rPercent jobs completed / submitted: {:6.2f} % ({}) / {:6.2f} % ({}).".format(100 * (len(processes) - sum(1 for process in processes if (process.is_alive()))) / n_processes, (len(processes) - sum(1 for process in processes if (process.is_alive()))), 100 * len(processes) / n_processes, len(processes)), end = '')
+        time.sleep(1)
+
+    print("\rPercent jobs completed / submitted: {:6.2f} % ({}) / {:6.2f} % ({}).".format(100 * (len(processes) - sum(1 for process in processes if (process.is_alive()))) / n_processes, (len(processes) - sum(1 for process in processes if (process.is_alive()))), 100 * len(processes) / n_processes, len(processes)), end = '')
 
     [process.join() for process in processes]
     
@@ -499,7 +502,12 @@ if __name__=="__main__":
         #    main()
         main()
 
-        print_locked('\n\n{:.{align}{width}}'.format("Program Body End:", align='<', width=50), end="\n\n\n\n")
+        print("\nExecution End at:", datetime.datetime.now())
+
+        print_locked('\n\n{:.{align}{width}}'.format("Program Body End:", align='<', width=50), end="\n\n")
+
+        print_locked('\n\n{:.{align}{width}}'.format("Execution End at: " 
+            + str(datetime.datetime.now()), align='<', width=150), end="\n\n")
 
         print_locked("\nProgram execution time:\t\t", datetime.datetime.now() - start, "hours\n")
 
