@@ -43,23 +43,33 @@
 
 #define TSCH_CALLBACK_NEW_TIME_SOURCE define_on_new_time_source
 
-#define BASE_SF_PERIOD (EB_MULT * SF_LENGTH * (CLOCK_SECOND / 100))
+#define ONE_SF_PERIOD (SF_LENGTH * (CLOCK_SECOND / 100))
+#define BASE_SF_PERIOD (EB_MULT * ONE_SF_PERIOD)
 
-#if SYNC_SCHEME == 2      /* 6TiSCH-MC (1S) */
+#if SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28)
+/* DEFINE and ADAPT/ASSIGN variants regulate beaconing per slotframe (I_base = 1 * S) */
+#define TSCH_CONF_EB_PERIOD ONE_SF_PERIOD
+#define TSCH_CONF_MAX_EB_PERIOD ONE_SF_PERIOD
+#elif SYNC_SCHEME == 2      /* 6TiSCH-MC (1S) */
 #define TSCH_CONF_EB_PERIOD BASE_SF_PERIOD
-#elif SYNC_SCHEME == 11   /* 6TiSCH-MC (Tuned 4S) */
+#define TSCH_CONF_MAX_EB_PERIOD BASE_SF_PERIOD
+#elif SYNC_SCHEME == 11     /* 6TiSCH-MC (Tuned 4S) */
 #define TSCH_CONF_EB_PERIOD (4 * BASE_SF_PERIOD)
-#elif SYNC_SCHEME == 12   /* 6TiSCH-MC (Default 26S) */
+#define TSCH_CONF_MAX_EB_PERIOD (4 * BASE_SF_PERIOD)
+#elif SYNC_SCHEME == 12     /* 6TiSCH-MC (Default 26S) */
 #define TSCH_CONF_EB_PERIOD (26 * BASE_SF_PERIOD)
-#elif SYNC_SCHEME == 10   /* EBMC (1S) */
+#define TSCH_CONF_MAX_EB_PERIOD (26 * BASE_SF_PERIOD)
+#elif SYNC_SCHEME == 10     /* EBMC (1S) */
 #define TSCH_CONF_EB_PERIOD (2 * BASE_SF_PERIOD)
-#elif SYNC_SCHEME == 13   /* EBMC (Tuned 2S) */
+#define TSCH_CONF_MAX_EB_PERIOD (2 * BASE_SF_PERIOD)
+#elif SYNC_SCHEME == 13     /* EBMC (Tuned 2S) */
 #define TSCH_CONF_EB_PERIOD (4 * BASE_SF_PERIOD)
+#define TSCH_CONF_MAX_EB_PERIOD (4 * BASE_SF_PERIOD)
 #else
 #define TSCH_CONF_EB_PERIOD BASE_SF_PERIOD
+#define TSCH_CONF_MAX_EB_PERIOD (16 * BASE_SF_PERIOD)
 #endif
 
-#define TSCH_CONF_MAX_EB_PERIOD (26 * BASE_SF_PERIOD)
 #define TSCH_PACKET_CONF_EB_WITH_SLOTFRAME_AND_LINK 1
 
 /* Support 8-point channel granularity: 2, 4, 6, 8, 10, 12, 14, 16 */

@@ -465,29 +465,37 @@ def generate_wavefront_cdf_plot():
 
 
 def load_raw_data(prefix):
-    candidates = glob.glob(os.path.join(STAT_DIR, f"_{prefix}_cooja_stats_.txt"))
-    if not candidates:
-        candidates = glob.glob(os.path.join(STAT_DIR, f"_{prefix}_stats_.txt"))
-    if not candidates:
-        return None
-    rows = []
-    with open(candidates[0], "r") as f:
-        for line in f:
-            parts = [float(p.strip()) for p in line.strip().split(",") if p.strip()]
-            if len(parts) >= 12:
-                rows.append(parts[:19] if len(parts) >= 19 else parts[:12])
-    if not rows:
-        return None
-    min_cols = min(len(r) for r in rows)
-    data = np.array([r[:min_cols] for r in rows], dtype=float)
-    non_zero = data[data[:, 5] > 0]
-    return non_zero if len(non_zero) > 0 else data
+    """
+    Load multi-seed Cooja rows from Statistics/. If both _{prefix}_cooja_stats_.txt and
+    _{prefix}_stats_.txt exist, prefer whichever file has more multi-seed rows.
+    """
+    candidates = (
+        glob.glob(os.path.join(STAT_DIR, f"_{prefix}_cooja_stats_.txt"))
+        + glob.glob(os.path.join(STAT_DIR, f"_{prefix}_stats_.txt"))
+    )
+    best_data = None
+    for path in candidates:
+        rows = []
+        with open(path, "r") as f:
+            for line in f:
+                parts = [float(p.strip()) for p in line.strip().split(",") if p.strip()]
+                if len(parts) >= 12:
+                    rows.append(parts[:19] if len(parts) >= 19 else parts[:12])
+        if not rows:
+            continue
+        min_cols = min(len(r) for r in rows)
+        data = np.array([r[:min_cols] for r in rows], dtype=float)
+        non_zero = data[data[:, 5] > 0]
+        arr = non_zero if len(non_zero) > 0 else data
+        if best_data is None or len(arr) > len(best_data):
+            best_data = arr
+    return best_data
 
 
 def get_series_with_se(prefix, x_col, fixed_filters, mode="default"):
     """
     Strictly aggregates real simulation rows from Statistics/ and computes
-    standard error SE = s / sqrt(n) ONLY when multiple seed rows (len(arr) > 1) exist.
+    standard error SE = s / sqrt(n) when multiple seed rows (len(arr) > 1) exist.
     """
     data = load_raw_data(prefix)
     if data is None:
@@ -496,9 +504,9 @@ def get_series_with_se(prefix, x_col, fixed_filters, mode="default"):
     for col, val in fixed_filters.items():
         mask &= (data[:, col] == val)
 
-    if mode == "densitywise":
+    if mode == "densitywise" and np.any(mask & (data[:, 1] == 100)):
         mask &= (data[:, 1] == 100)
-    elif mode == "motewise":
+    elif mode == "motewise" and np.any(mask & (data[:, 1] != 100)):
         mask &= (data[:, 1] != 100)
 
     filtered = data[mask]

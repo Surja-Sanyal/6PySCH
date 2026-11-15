@@ -126,7 +126,7 @@ define_on_new_time_source(const struct tsch_neighbor *old, const struct tsch_nei
 }
 
 static void
-set_slot0_link(uint8_t offset, uint8_t link_opts)
+set_slot0_link(uint8_t offset, uint8_t link_opts, enum link_type ltype)
 {
   sf_min = tsch_schedule_get_slotframe_by_handle(0);
   if(sf_min != NULL && !tsch_is_locked()) {
@@ -134,8 +134,9 @@ set_slot0_link(uint8_t offset, uint8_t link_opts)
     if(l != NULL) {
       l->channel_offset = offset;
       l->link_options = link_opts;
+      l->link_type = ltype;
     } else {
-      tsch_schedule_add_link(sf_min, link_opts, LINK_TYPE_ADVERTISING,
+      tsch_schedule_add_link(sf_min, link_opts, ltype,
                              &tsch_broadcast_address, 0, offset, 1);
     }
   }
@@ -216,19 +217,20 @@ apply_scheme_schedule(void)
     if((sf_num & 1) == 1) {
       uint8_t step = (uint8_t)((sf_num / 2) % NUM_CHANNELS);
       uint8_t cand_off = (SYNC_SCHEME == 27) ? (uint8_t)((NUM_CHANNELS - 1) - step) : step;
-      set_slot0_link(cand_off, LINK_OPTION_RX | LINK_OPTION_SHARED);
+      set_slot0_link(cand_off, LINK_OPTION_RX | LINK_OPTION_SHARED, LINK_TYPE_ADVERTISING);
     } else {
-      set_slot0_link(0, LINK_OPTION_RX | LINK_OPTION_TX | LINK_OPTION_SHARED);
+      set_slot0_link(0, LINK_OPTION_RX | LINK_OPTION_TX | LINK_OPTION_SHARED, LINK_TYPE_ADVERTISING);
     }
     return;
   }
 
   slot_callbacks++;
   int nbrs = uip_ds6_nbr_num();
-  clock_time_t base_sf_dur = (clock_time_t)(EB_MULT * SF_LENGTH * (CLOCK_SECOND / 100));
-  if(base_sf_dur < 4) {
-    base_sf_dur = 4;
+  clock_time_t one_sf_dur = (clock_time_t)(SF_LENGTH * (CLOCK_SECOND / 100));
+  if(one_sf_dur < 4) {
+    one_sf_dur = 4;
   }
+  clock_time_t base_sf_dur = (clock_time_t)(EB_MULT * one_sf_dur);
 
   uint8_t link_opts = LINK_OPTION_RX | LINK_OPTION_TX | LINK_OPTION_SHARED;
   uint8_t tx_prob_u8 = 255;
@@ -399,7 +401,7 @@ apply_scheme_schedule(void)
     if(sync_age_slots >= 3000UL) {
       if(sync_wait_cnt < 20) {
         sync_wait_cnt++;
-        set_slot0_link(parent_ch_offset, LINK_OPTION_RX | LINK_OPTION_TIME_KEEPING);
+        set_slot0_link(parent_ch_offset, LINK_OPTION_RX | LINK_OPTION_TIME_KEEPING, LINK_TYPE_ADVERTISING);
         return;
       } else {
         parent_ch_offset = (uint8_t)((parent_ch_offset + 1) % NUM_CHANNELS);
@@ -409,10 +411,12 @@ apply_scheme_schedule(void)
     }
   }
 
+  /* For DEFINE and ADAPT schemes, per-slotframe Bernoulli trial is independent of EB_MULT */
+  clock_time_t sched_dur = (SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28)) ? one_sf_dur : base_sf_dur;
   uint8_t r_draw = (uint8_t)(random_rand() & 0xFF);
   if(r_draw <= tx_prob_u8) {
-    set_slot0_link(ch_offset_u, LINK_OPTION_TX);
-    safe_set_eb_period(base_sf_dur);
+    set_slot0_link(ch_offset_u, LINK_OPTION_TX | LINK_OPTION_RX | LINK_OPTION_SHARED, LINK_TYPE_ADVERTISING);
+    safe_set_eb_period(sched_dur);
     eb_tx_counter += subslots;
     uint16_t pid = get_preferred_parent_id();
     uint32_t delta_sf = (asn_now > join_asn) ? ((asn_now - join_asn) / SF_LENGTH) : 0;
@@ -421,8 +425,9 @@ apply_scheme_schedule(void)
              (unsigned)cached_h_u, (unsigned)pid, (unsigned)subslots,
              (unsigned long)delta_sf, (unsigned)tx_prob_u8);
   } else {
-    set_slot0_link(0, link_opts);
-    safe_set_eb_period(base_sf_dur * 16);
+    /* State 3: Shared control RX/TX on base cell (0,0) with LINK_TYPE_NORMAL so EBs are not sent */
+    set_slot0_link(0, link_opts, LINK_TYPE_NORMAL);
+    safe_set_eb_period(sched_dur);
   }
 
   if((slot_callbacks % 10) == 0) {
