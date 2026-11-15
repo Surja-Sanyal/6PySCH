@@ -106,7 +106,7 @@ def build_interference_adj(coords, tx_range=50.0):
     return adj
 
 
-def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=600000, nbr_cap=32):
+def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=90000, nbr_cap=32):
     poisson_flag = 1 if scheme_id == 28 else 0
     rx_success = 0.85 if scheme_id == 26 else 1.0
     make_vars = (
@@ -190,7 +190,7 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
         while (joined &lt; target) {{
           YIELD();
           if (msg.equals("CHECK_STAGNATION")) {{
-            if (joined &gt; 0 &amp;&amp; (time - last_join_time) &gt; 60000000 &amp;&amp; time &gt; 120000000) {{
+            if (joined &gt; 0 &amp;&amp; (time - last_join_time) &gt; 18000000 &amp;&amp; time &gt; 25000000) {{
               log.log("STAGNATION_STOP at time=" + time + " joined=" + joined + "\\n");
               log.testOK();
             }}
@@ -258,9 +258,12 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
 
         if proc.returncode != 0 and not (os.path.exists(testlog_path) and "CSV_JOIN" in open(testlog_path, errors="ignore").read()):
             time.sleep(2)
-            subprocess.run(cmd, cwd=COOJA_DIR, capture_output=True, text=True, env=env)
+            proc = subprocess.run(cmd, cwd=COOJA_DIR, capture_output=True, text=True, env=env)
 
         if not os.path.exists(testlog_path):
+            print("ERROR: COOJA.testlog was not created! Cooja stdout/stderr tail:")
+            print(proc.stdout[-1500:])
+            print(proc.stderr[-1500:])
             continue
 
         with open(testlog_path, "r", errors="ignore") as f:

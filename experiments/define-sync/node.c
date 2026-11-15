@@ -1,14 +1,11 @@
 #include "contiki.h"
 #include "net/netstack.h"
 #include "net/linkaddr.h"
-#include "net/mac/tsch/tsch.h"
-#include "net/mac/tsch/tsch-queue.h"
-#include "net/mac/tsch/tsch-schedule.h"
-#include "net/routing/routing.h"
-#include "net/routing/rpl-lite/rpl.h"
-#include "net/routing/rpl-lite/rpl-neighbor.h"
 #include "net/ipv6/uip-ds6-nbr.h"
 #include "net/link-stats.h"
+#include "net/mac/tsch/tsch.h"
+#include "net/routing/routing.h"
+#include "net/routing/rpl-lite/rpl.h"
 #include "sys/energest.h"
 #include "sys/node-id.h"
 #include "sys/log.h"
@@ -73,7 +70,7 @@ static uint16_t
 get_preferred_parent_id(void)
 {
   if(curr_instance.used && curr_instance.dag.preferred_parent != NULL) {
-    const linkaddr_t *ll = rpl_neighbor_get_lladdr(curr_instance.dag.preferred_parent);
+    const linkaddr_t *ll = (const linkaddr_t *)rpl_neighbor_get_lladdr(curr_instance.dag.preferred_parent);
     if(ll != NULL) {
       return (uint16_t)ll->u8[LINKADDR_SIZE - 1];
     }
@@ -100,10 +97,12 @@ get_unicast_tx_retries(void)
   uint32_t retries = 0;
   uip_ds6_nbr_t *nbr = uip_ds6_nbr_head();
   while(nbr != NULL) {
-    const linkaddr_t *ll = uip_ds6_nbr_get_ll(nbr);
-    const struct link_stats *stats = link_stats_from_lladdr(ll);
-    if(stats != NULL && stats->etx > 128) {
-      retries += (uint32_t)((stats->etx - 128) / 64);
+    const linkaddr_t *ll = (const linkaddr_t *)uip_ds6_nbr_get_ll(nbr);
+    if(ll != NULL) {
+      const struct link_stats *stats = link_stats_from_lladdr(ll);
+      if(stats != NULL && stats->etx > 128) {
+        retries += (uint32_t)((stats->etx - 128) / 64);
+      }
     }
     nbr = uip_ds6_nbr_next(nbr);
   }
@@ -152,7 +151,6 @@ safe_set_eb_period(clock_time_t period)
   if(period < min_period) {
     period = min_period;
   }
-  /* Only update tsch_eb_period when it changes by >= 25% so we never reset eb_timer mid-cycle */
   clock_time_t diff = (period > last_eb_period) ? (period - last_eb_period) : (last_eb_period - period);
   if(last_eb_period == 0 || diff >= (last_eb_period / 4 + 2)) {
     tsch_set_eb_period(period);

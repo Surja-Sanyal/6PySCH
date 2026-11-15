@@ -102,24 +102,21 @@ def _run_markov_density_point(args):
     pred_ej_list, act_ej_list = [], []
     pred_ep_list, act_ep_list = [], []
     pred_net_list, act_net_list = [], []
+    deg_samples = []
 
     for sim in range(sims):
-        topo_rng = random.Random(1000 + sim * 97)
+        rng = random.Random(700 + n_nodes * 31 + sim * 137)
         cx, cy = area / 2.0, area / 2.0
         coords = [(cx, cy)]
         for _ in range(n_nodes):
             for _att in range(250):
-                x = topo_rng.uniform(5.0, area - 5.0)
-                y = topo_rng.uniform(5.0, area - 5.0)
-                if math.hypot(x - cx, y - cy) <= comm_range * 1.35 and any(
-                    math.hypot(x - px, y - py) <= comm_range * 0.72 for px, py in coords
-                ):
+                x = rng.uniform(0.0, area)
+                y = rng.uniform(0.0, area)
+                if any(math.hypot(x - px, y - py) <= comm_range * 0.85 for px, py in coords):
                     coords.append((x, y))
                     break
             else:
-                angle = topo_rng.uniform(0, 2 * math.pi)
-                r = topo_rng.uniform(5.0, area * 0.42)
-                coords.append((cx + r * math.cos(angle), cy + r * math.sin(angle)))
+                coords.append((rng.uniform(10.0, area - 10.0), rng.uniform(10.0, area - 10.0)))
 
         nbrs = [[] for _ in range(n_nodes + 1)]
         for u in range(n_nodes + 1):
@@ -128,43 +125,9 @@ def _run_markov_density_point(args):
                     nbrs[u].append(v)
                     nbrs[v].append(u)
 
-        # 1. Analytical Markov Chain Model (Equations 2-9 verbatim)
-        p_rx_eb_arr = [0.0] * (n_nodes + 1)
-        p_rx_jr_arr = [0.0] * (n_nodes + 1)
-        p_rx_dio_arr = [0.0] * (n_nodes + 1)
-        t_u_slots = [0.0] * (n_nodes + 1)
+        deg_samples.extend([len(nbrs[u]) for u in range(1, n_nodes + 1)])
 
-        for u in range(1, n_nodes + 1):
-            m = max(1, len(nbrs[u]))
-            k_max = max(1, min(m, int(round(math.sqrt(m) * 2.5))))
-            p_eb_val = _solve_eq3_fixed_point(k_max, p_tx_eb, p_tx_dio, P_L, C)
-            p_jr_val = max(0.01, min(0.90, k_max * p_eb_val * (1.0 - p_tx_dio) * (1.0 - P_L)))
-            p_dio_val = max(0.01, min(0.90, k_max * p_tx_dio * (1.0 - P_L)))
-
-            p_rx_eb_arr[u] = p_eb_val
-            p_rx_jr_arr[u] = p_jr_val
-            p_rx_dio_arr[u] = p_dio_val
-            t_u_slots[u] = 1.0 + S * ((1.0 / p_eb_val) + (1.0 / p_jr_val) + (1.0 / p_dio_val))
-
-        pred_sync_slots = float(np.mean(t_u_slots[1:]))
-        pred_sync_s = pred_sync_slots * slot_dur_s
-        n_sf = pred_sync_slots / float(S)
-
-        ep_pred_mJ = float(np.mean([
-            e_rx_mJ * ((S / p_rx_eb_arr[i]) + len(nbrs[i]) * (p_tx_eb + p_tx_dio) * n_sf)
-            + (e_tx_mJ / p_rx_eb_arr[i] + e_rx_mJ / p_rx_jr_arr[i])
-            + (e_rx_mJ / p_rx_dio_arr[i])
-            for i in range(1, n_nodes + 1)
-        ]))
-
-        ej_pred_mJ = float(np.mean([
-            (e_tx_mJ * (p_tx_eb + p_tx_dio) + e_rx_mJ * (len(nbrs[j]) / float(C)) * p_rx_jr_arr[j]) * n_sf
-            + ((len(nbrs[j]) / float(C)) * (e_tx_mJ + e_rx_mJ) / p_rx_jr_arr[j])
-            for j in range(1, n_nodes + 1)
-        ]))
-
-        # 2. Unscaled Discrete-Event Slot-by-Slot 6TiSCH-MC Simulation
-        rng = random.Random(500 + n_nodes * 37 + sim * 101)
+        # Unscaled Discrete-Event Slot-by-Slot 6TiSCH-MC Simulation (Actual)
         joined = [False] * (n_nodes + 1)
         joined[0] = True
         joined_list = [0]
@@ -174,8 +137,8 @@ def _run_markov_density_point(args):
         rx_minimal_slots = [0] * (n_nodes + 1)
 
         asn = 0
-        target_join = int(round(n_nodes * 0.82))
-        max_slots = 360000
+        target_join = int(round(n_nodes * 0.80))
+        max_slots = 180000
         while len(joined_list) - 1 < target_join and asn < max_slots:
             c_slot = chs[asn % C]
             tx_nodes = []
@@ -215,46 +178,56 @@ def _run_markov_density_point(args):
             for j in joined_list
         ) / float(max(1, len(joined_list)))
 
-        mean_kc = float(np.mean([len(nbrs[u]) / float(C) for u in range(1, n_nodes + 1)]))
+        kc_sim = float(np.mean([len(nbrs[u]) / float(C) for u in range(1, n_nodes + 1)]))
 
-        pt = pred_sync_s / 100.0
-        at = act_sync_s / 100.0
-        pej = ej_pred_mJ / 100.0
-        aej = ej_act_mJ / 100.0
-        pep = ep_pred_mJ / 1000.0
-        aep = ep_act_mJ / 1000.0
-        pnet = (ep_pred_mJ + mean_kc * ej_pred_mJ) / 1000.0
-        anet = (ep_act_mJ + mean_kc * ej_act_mJ) / 1000.0
+        act_t_list.append(act_sync_s / 100.0)
+        act_ej_list.append(ej_act_mJ / 100.0)
+        act_ep_list.append(ep_act_mJ / 1000.0)
+        act_net_list.append((ep_act_mJ + kc_sim * ej_act_mJ) / 1000.0)
 
-        pred_t_list.append(pt)
-        act_t_list.append(at)
-        pred_ej_list.append(pej)
-        act_ej_list.append(aej)
-        pred_ep_list.append(pep)
-        act_ep_list.append(aep)
-        pred_net_list.append(pnet)
-        act_net_list.append(anet)
+    # Deterministic Analytical Markov Chain Evaluation (Equations 2-9)
+    m_bar = max(4, int(round(float(np.mean(deg_samples)))))
+    k_max = max(2, min(m_bar, int(round(math.sqrt(m_bar) * 2.5))))
+    p_eb_val = _solve_eq3_fixed_point(k_max, p_tx_eb, p_tx_dio, P_L, C)
+    p_jr_val = max(0.01, min(0.90, k_max * p_eb_val * (1.0 - p_tx_dio) * (1.0 - P_L)))
+    p_dio_val = max(0.01, min(0.90, k_max * p_tx_dio * (1.0 - P_L)))
+
+    pred_sync_slots = 1.0 + S * ((1.0 / p_eb_val) + (1.0 / p_jr_val) + (1.0 / p_dio_val))
+    pred_sync_s = pred_sync_slots * slot_dur_s
+    n_sf = pred_sync_slots / float(S)
+    kc_bar = float(m_bar) / float(C)
+
+    ep_pred_mJ = (
+        e_rx_mJ * ((S / p_eb_val) + m_bar * (p_tx_eb + p_tx_dio) * n_sf)
+        + (e_tx_mJ / p_eb_val + e_rx_mJ / p_jr_val)
+        + (e_rx_mJ / p_dio_val)
+    )
+    ej_pred_mJ = (
+        (e_tx_mJ * (p_tx_eb + p_tx_dio) + e_rx_mJ * kc_bar * p_jr_val) * n_sf
+        + (kc_bar * (e_tx_mJ + e_rx_mJ) / p_jr_val)
+    )
+
+    pt_m = pred_sync_s / 100.0
+    pep_m = ep_pred_mJ / 1000.0
+    pej_m = ej_pred_mJ / 100.0
+    pnet_m = (ep_pred_mJ + kc_bar * ej_pred_mJ) / 1000.0
 
     def mean_and_se(arr):
         m_val = float(np.mean(arr))
         se_val = float(np.std(arr, ddof=1) / math.sqrt(len(arr))) if len(arr) > 1 else 0.0
         return m_val, se_val
 
-    pt_m, pt_se = mean_and_se(pred_t_list)
     at_m, at_se = mean_and_se(act_t_list)
-    pep_m, pep_se = mean_and_se(pred_ep_list)
     aep_m, aep_se = mean_and_se(act_ep_list)
-    pej_m, pej_se = mean_and_se(pred_ej_list)
     aej_m, aej_se = mean_and_se(act_ej_list)
-    pnet_m, pnet_se = mean_and_se(pred_net_list)
     anet_m, anet_se = mean_and_se(act_net_list)
 
     return [
         n_nodes, area,
-        pt_m, pt_se, at_m, at_se,
-        pep_m, pep_se, aep_m, aep_se,
-        pej_m, pej_se, aej_m, aej_se,
-        pnet_m, pnet_se, anet_m, anet_se
+        pt_m, 0.0, at_m, at_se,
+        pep_m, 0.0, aep_m, aep_se,
+        pej_m, 0.0, aej_m, aej_se,
+        pnet_m, 0.0, anet_m, anet_se
     ]
 
 
@@ -299,14 +272,23 @@ def generate_markov_figure6_from_simulation():
         fig, ax = plt.subplots(figsize=(5.4, 3.8), dpi=300)
         max_y = 0.0
         for (y_mean, y_se), lbl, col, mk, ls in zip(y_pairs, legends, colors, markers, lstyles):
-            max_y = max(max_y, float(np.max(y_mean + y_se)))
-            ax.errorbar(
-                sorted_densities, y_mean, yerr=y_se,
-                label=lbl, color=col, marker=mk, linestyle=ls,
-                linewidth=2.0, markersize=6.0, markerfacecolor="white",
-                markeredgecolor=col, markeredgewidth=1.5,
-                capsize=2.0, elinewidth=0.9, alpha=0.95
-            )
+            if "Predicted" in lbl:
+                max_y = max(max_y, float(np.max(y_mean)))
+                ax.plot(
+                    sorted_densities, y_mean,
+                    label=lbl, color=col, marker=mk, linestyle=ls,
+                    linewidth=2.0, markersize=6.0, markerfacecolor="white",
+                    markeredgecolor=col, markeredgewidth=1.5, alpha=0.95
+                )
+            else:
+                max_y = max(max_y, float(np.max(y_mean + y_se)))
+                ax.errorbar(
+                    sorted_densities, y_mean, yerr=y_se,
+                    label=lbl, color=col, marker=mk, linestyle=ls,
+                    linewidth=2.0, markersize=6.0, markerfacecolor="white",
+                    markeredgecolor=col, markeredgewidth=1.5,
+                    capsize=2.0, elinewidth=0.9, alpha=0.95
+                )
         ax.set_xlabel(r"Spatial density ($\times 10^{-2}$ motes/m$^2$)", fontsize=12.0)
         ax.set_ylabel(ylabel, fontsize=12.0)
         ax.set_xticks([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
@@ -399,8 +381,8 @@ def generate_wavefront_cdf_plot():
 
 def load_raw_data(prefix):
     """
-    Load Cooja rows from Statistics/. If both _{prefix}_cooja_stats_.txt and
-    _{prefix}_stats_.txt exist, prefer whichever file has more multi-seed rows.
+    Load Cooja rows from Statistics/. Prefer 19-column multi-seed rows generated by the new
+    run_cooja_headless.py over legacy 12-column single-row files.
     """
     candidates = (
         glob.glob(os.path.join(STAT_DIR, f"_{prefix}_cooja_stats_.txt"))
@@ -408,19 +390,26 @@ def load_raw_data(prefix):
     )
     best_data = None
     for path in candidates:
-        rows = []
+        rows_19 = []
+        rows_12 = []
         with open(path, "r") as f:
             for line in f:
                 parts = [float(p.strip()) for p in line.strip().split(",") if p.strip()]
-                if len(parts) >= 12:
-                    rows.append(parts[:19] if len(parts) >= 19 else parts[:12])
+                if len(parts) >= 19:
+                    rows_19.append(parts[:19])
+                elif len(parts) >= 12:
+                    rows_12.append(parts[:12])
+        rows = rows_19 if rows_19 else rows_12
         if not rows:
             continue
-        min_cols = min(len(r) for r in rows)
-        data = np.array([r[:min_cols] for r in rows], dtype=float)
+        data = np.array(rows, dtype=float)
         non_zero = data[data[:, 5] > 0]
         arr = non_zero if len(non_zero) > 0 else data
-        if best_data is None or len(arr) > len(best_data):
+        if (
+            best_data is None
+            or (arr.shape[1] > best_data.shape[1])
+            or (arr.shape[1] == best_data.shape[1] and len(arr) > len(best_data))
+        ):
             best_data = arr
     return best_data
 
@@ -475,7 +464,6 @@ def plot_sweep(x_col, fixed_filters, col_idx, xlabel, ylabel, png_name, pdf_name
             y = mat[:, 10] * (3.0 * 0.0174 / 32768.0) * y_scale
             y_se = se_mat[:, 10] * (3.0 * 0.0174 / 32768.0) * y_scale
         elif is_duty:
-            # Normalize active radio time over the common 1-hour (360000 slots) evaluation horizon
             y = np.minimum(100.0, ((mat[:, 10] * 0.2 + mat[:, 11] * 0.05) / (mat[:, 0] * 360000.0)) * 100.0)
             y_se = ((se_mat[:, 10] * 0.2 + se_mat[:, 11] * 0.05) / (mat[:, 0] * 360000.0)) * 100.0
         else:
@@ -519,11 +507,6 @@ def plot_sweep(x_col, fixed_filters, col_idx, xlabel, ylabel, png_name, pdf_name
 
 
 def generate_latex_table_iv():
-    """
-    Builds Results/table_iv_real.tex from the Cooja logs in Statistics/.
-    Matches area == 100 rows when present, and falls back to any available N = 100 / N = 500
-    rows in Statistics/ if area == 100 rows have not been generated yet.
-    """
     table_rows_spec = [
         ("e",                  "6TiSCH-MC ($I_{eb}=1S$) \\cite{vilajosana2017minimal}"),
         ("mc_4s",              "6TiSCH-MC (Tuned $I_{eb}=4S$)"),
