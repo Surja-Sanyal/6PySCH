@@ -357,6 +357,11 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         slot0_equiv_tx_ticks = int(round((slot0_tx_us_sum + (18.8 / 17.4) * slot0_rx_us_sum) * 32768.0 / 1e6))
         scan_rx_ticks_32k = int(round(scan_rx_us_sum * 32768.0 / 1e6))
 
+        mean_switches = float(np.mean(list(node_switches.values()))) if node_switches else 0.0
+        mean_retries = float(np.mean(list(node_retries.values()))) if node_retries else 0.0
+        max_sf = max([k[0] for k in sf_ch_senders.keys()] + [1])
+        eb_rate = float(sum(node_eb_cnt.values())) / float(max(1, num_joined * max_sf))
+
         with open(stat_file, "a") as fp:
             row = [
                 n_nodes, area, n_ch, sf_len, eb_mult,

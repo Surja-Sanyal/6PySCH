@@ -159,6 +159,10 @@ jobs:
               out_path = os.path.join("Statistics", fname)
               with open(out_path, "w") as f:
                   f.write("\n".join(sorted_lines) + "\n")
+              legacy_fname = fname.replace("_cooja_stats_.txt", "_stats_.txt")
+              if legacy_fname != fname:
+                  with open(os.path.join("Statistics", legacy_fname), "w") as f:
+                      f.write("\n".join(sorted_lines) + "\n")
               print(f"Merged {len(sorted_lines)} real Cooja seed rows into {out_path}")
 
           for csv_file in glob.glob("tmp_artifacts/**/join_times_*.csv", recursive=True):
