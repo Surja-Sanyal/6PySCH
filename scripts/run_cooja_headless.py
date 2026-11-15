@@ -120,7 +120,7 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
       <identifier>cooja_define</identifier>
       <description>Cooja DEFINE Mote</description>
       <source>{EXP_DIR}/node.c</source>
-      <commands>make -j4 node.cooja TARGET=cooja {make_vars}</commands>
+      <commands>make clean TARGET=cooja &amp;&amp; make -j4 node.cooja TARGET=cooja {make_vars}</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>
       <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiVib</moteinterface>
@@ -319,24 +319,33 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
             continue
 
         # Count physical-layer co-channel timeslot-0 collisions on G_I
+        # Count physical-layer co-channel timeslot-0 collided transmissions on G_I (linear per collided sender, not quadratic k*(k-1)/2)
         coll_tree, coll_sib, coll_cross = 0, 0, 0
         for (_sf_idx, _ch_off), sender_list in sf_ch_senders.items():
             if len(sender_list) < 2:
                 continue
             for idx_a in range(len(sender_list)):
                 u, sub_u = sender_list[idx_a]
-                for idx_b in range(idx_a + 1, len(sender_list)):
-                    v, sub_v = sender_list[idx_b]
+                has_tree, has_sib, has_cross = False, False, False
+                for idx_b in range(len(sender_list)):
+                    if idx_a == idx_b:
+                        continue
+                    v, _sub_v = sender_list[idx_b]
                     if u == v:
                         continue
                     if (v in adj.get(u, set())) or bool(adj.get(u, set()).intersection(adj.get(v, set()))):
-                        events = max(sub_u, sub_v)
                         if node_parent.get(u, -1) == v or node_parent.get(v, -1) == u:
-                            coll_tree += events
+                            has_tree = True
                         elif node_tier.get(u, -1) == node_tier.get(v, -2):
-                            coll_sib += events
+                            has_sib = True
                         else:
-                            coll_cross += events
+                            has_cross = True
+                if has_tree:
+                    coll_tree += sub_u
+                elif has_sib:
+                    coll_sib += sub_u
+                elif has_cross:
+                    coll_cross += sub_u
 
         coll_total = coll_tree + coll_sib + coll_cross
 
