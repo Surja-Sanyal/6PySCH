@@ -225,7 +225,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
     stat_file = os.path.join(STAT_DIR, f"_{stat_key}{suffix}_cooja_stats_.txt")
 
     if seeds is None:
-        seeds = list(range(1, 31))
+        seeds = list(range(1, 6))
 
     shutil.rmtree(os.path.join(EXP_DIR, "build"), ignore_errors=True)
 
@@ -315,7 +315,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         if num_joined == 0:
             continue
 
-        # Count real physical-layer co-channel timeslot-0 collisions on G_I
+        # Count physical-layer co-channel timeslot-0 collisions on G_I
         coll_tree, coll_sib, coll_cross = 0, 0, 0
         for (_sf_idx, _ch_off), sender_list in sf_ch_senders.items():
             if len(sender_list) < 2:
@@ -326,7 +326,6 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
                     v, sub_v = sender_list[idx_b]
                     if u == v:
                         continue
-                    # Concurrent transmissions by u and v collide if they share a common RF neighbor in G_I (or are direct neighbors)
                     if (v in adj.get(u, set())) or bool(adj.get(u, set()).intersection(adj.get(v, set()))):
                         events = max(sub_u, sub_v)
                         if node_parent.get(u, -1) == v or node_parent.get(v, -1) == u:
@@ -348,12 +347,10 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         t_pen_s = 320.0 * (0.65 + 0.35 * (n_nodes / 200.0)) * (0.75 + 0.25 * (sf_len / 61.0)) * (0.80 + 0.20 * (n_ch / 16.0))
         t_sync_hat_s = 0.55 * median_join_s + unjoined_frac * t_pen_s
 
-        # Pure post-join timeslot-0 active energy ticks (col 10) and pure pre-join scan RX ticks (col 11)
         slot0_tx_us_sum = sum(node_tx_us.values())
         slot0_rx_us_sum = sum(node_rx_us.values())
         scan_rx_us_sum = sum(scan_rx_us_map.values())
 
-        # Equivalent 32,768 Hz ticks at Zolertia Z1 currents (17.4 mA TX, 18.8 mA RX)
         slot0_equiv_tx_ticks = int(round((slot0_tx_us_sum + (18.8 / 17.4) * slot0_rx_us_sum) * 32768.0 / 1e6))
         scan_rx_ticks_32k = int(round(scan_rx_us_sum * 32768.0 / 1e6))
 
@@ -379,14 +376,11 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
 
 def run_sweep_group(scheme_id, group_id, seeds=None):
     if seeds is None:
-        seeds = list(range(1, 31))
+        seeds = list(range(1, 6))
     if 1 <= group_id <= 10:
         n = group_id * 50
-        # 1) Constant-density sweep (Fig. 7)
         run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=None, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=32)
-        # 2) Fixed 100 m x 100 m spatial-density sweep (Figs. 8 & 9 + Table IV 32-entry)
         run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=100, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=32)
-        # 3) At N = 100 and N = 500, also run 64-entry neighbor table for Table IV
         if n in (100, 500):
             run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=100, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=64)
     elif group_id == 11:

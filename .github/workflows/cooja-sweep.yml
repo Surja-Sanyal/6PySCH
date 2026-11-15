@@ -48,7 +48,7 @@ jobs:
 
       - name: Run Cooja Headless Simulation Batch
         run: |
-          rm -rf Statistics/*_cooja_stats_.txt
+          rm -rf Statistics/*_stats_.txt Statistics/*.csv
           if [ ! -f "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja/build.gradle" ] && [ -f "/home/user/contiki-ng/tools/cooja/build.gradle" ]; then
             rm -rf "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja"
             cp -a /home/user/contiki-ng/tools/cooja "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja"
@@ -57,7 +57,7 @@ jobs:
           rm -rf /home/user/contiki-ng
           ln -sfn "$GITHUB_WORKSPACE/contiki-ng-define" /home/user/contiki-ng
 
-          python3 -c "import scripts.run_cooja_headless as r; s=list(range(1, int('${{ inputs.num_seeds }}' or '30') + 1)); r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
+          python3 -c "import scripts.run_cooja_headless as r; s=list(range(1, int('${{ inputs.num_seeds }}' or '5') + 1)); r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
 
       - name: Upload Statistics Artifact
         uses: actions/upload-artifact@v4
@@ -99,7 +99,7 @@ jobs:
 
       - name: Run Cooja Ablation & Control Batch
         run: |
-          rm -rf Statistics/*_cooja_stats_.txt
+          rm -rf Statistics/*_stats_.txt Statistics/*.csv
           if [ ! -f "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja/build.gradle" ] && [ -f "/home/user/contiki-ng/tools/cooja/build.gradle" ]; then
             rm -rf "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja"
             cp -a /home/user/contiki-ng/tools/cooja "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja"
@@ -108,7 +108,7 @@ jobs:
           rm -rf /home/user/contiki-ng
           ln -sfn "$GITHUB_WORKSPACE/contiki-ng-define" /home/user/contiki-ng
 
-          python3 -c "import scripts.run_cooja_headless as r; s=list(range(1, int('${{ inputs.num_seeds }}' or '30') + 1)); r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
+          python3 -c "import scripts.run_cooja_headless as r; s=list(range(1, int('${{ inputs.num_seeds }}' or '5') + 1)); r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
 
       - name: Upload Ablation Artifact
         uses: actions/upload-artifact@v4
@@ -142,7 +142,7 @@ jobs:
           os.makedirs("Statistics", exist_ok=True)
           merged = {}
 
-          for filepath in sorted(glob.glob("tmp_artifacts/**/*_stats_.txt", recursive=True)):
+          for filepath in sorted(glob.glob("tmp_artifacts/**/*_cooja_stats_.txt", recursive=True)):
               fname = os.path.basename(filepath)
               with open(filepath, "r") as f:
                   for idx, line in enumerate(f):
@@ -180,6 +180,7 @@ jobs:
             *.png
             Plots/
             Results/
+            Results/table_iv_real.tex
 
       - name: Auto-Commit Merged Results to Repository
         run: |
