@@ -69,30 +69,31 @@ def save_standalone_legend():
     plt.close(fig)
 
 
-def _solve_fixed_point_eb_prob(m_nbrs, p_tx_eb, p_tx_dio, P_L, C):
+def _solve_eq3_fixed_point(M_nbrs, p_tx_eb, p_tx_dio, P_L, C):
+    """Exact fixed-point solution of Equation (3) with uniform prior P(K=k) = 1/M."""
     p_rx_eb = p_tx_eb * (1.0 - P_L) / float(C)
-    for _ in range(25):
-        total = 0.0
-        for k in range(1, m_nbrs + 1):
+    for _ in range(30):
+        acc = 0.0
+        for k in range(1, M_nbrs + 1):
             term = (
                 k * p_tx_eb
                 * ((1.0 - p_tx_eb) ** (k - 1))
                 * ((1.0 - p_tx_dio) ** (k - 1))
-                * ((1.0 - p_rx_eb) ** (m_nbrs - k))
+                * ((1.0 - p_rx_eb) ** (M_nbrs - k))
                 * (1.0 - P_L)
-                * (1.0 / float(m_nbrs))
+                / float(M_nbrs)
             )
-            total += term / float(C)
-        p_rx_eb = max(1e-5, min(0.95, total))
+            acc += term / float(C)
+        p_rx_eb = max(1e-5, min(0.95, acc))
     return p_rx_eb
 
 
 def _run_markov_density_point(args):
     n_nodes, area, realdata, sims, S, C, p_tx_eb, p_tx_dio, P_L, TxFactor, RxFactor = args
     slot_dur_s = 0.01
-    v_sup = 3.0
-    e_tx_slot_mJ = v_sup * TxFactor * slot_dur_s
-    e_rx_slot_mJ = v_sup * RxFactor * slot_dur_s
+    v_sup = 3.0  # Zolertia Z1 supply voltage (3.0 V)
+    e_tx_mJ = v_sup * TxFactor * slot_dur_s  # 0.522 mJ per slot
+    e_rx_mJ = v_sup * RxFactor * slot_dur_s  # 0.564 mJ per slot
     comm_range = 50.0
     chs = [i + 1 for i in range(C)]
 
@@ -125,6 +126,7 @@ def _run_markov_density_point(args):
 
         children_bfs = [[] for _ in range(n_nodes + 1)]
         parent_bfs = [0] * (n_nodes + 1)
+        depth_bfs = [0] * (n_nodes + 1)
         visited = {0}
         q = [0]
         while q:
@@ -133,33 +135,51 @@ def _run_markov_density_point(args):
                 if v not in visited:
                     visited.add(v)
                     parent_bfs[v] = u
+                    depth_bfs[v] = depth_bfs[u] + 1
                     children_bfs[u].append(v)
                     q.append(v)
 
-        # 1. Exact Analytical Markov Chain Equations (Eqs. 2-9, zero empirical multipliers)
+        # 1. Analytical Markov Chain Model (Equations 2-9 verbatim)
         p_rx_eb_arr = [0.0] * (n_nodes + 1)
         p_rx_jr_arr = [0.0] * (n_nodes + 1)
         p_rx_dio_arr = [0.0] * (n_nodes + 1)
         t_u_slots = [0.0] * (n_nodes + 1)
 
         for u in range(1, n_nodes + 1):
-            m = max(1, len(nbrs[u]))
-            p_eb_val = _solve_fixed_point_eb_prob(m, p_tx_eb, p_tx_dio, P_L, C)
+            # Upstream/parent tier neighborhood M_u in the low-density baseline model
+            m_upstream = max(1, sum(1 for v in nbrs[u] if depth_bfs[v] < depth_bfs[u]))
+            p_eb_val = _solve_eq3_fixed_point(m_upstream, p_tx_eb, p_tx_dio, P_L, C)
+
+            # Equation (4): P^{rx}_{jr}
             p_jr_val = sum(
-                k * p_eb_val * ((1.0 - p_eb_val) ** (m - k)) * ((1.0 - p_tx_dio) ** k) * ((1.0 - p_tx_eb) ** k) * (1.0 - P_L) / float(m)
-                for k in range(1, m + 1)
-            )
-            p_dio_val = sum(
-                k * p_tx_dio * ((1.0 - p_tx_dio) ** (k - 1)) * ((1.0 - p_eb_val) ** (m - k)) * ((1.0 - p_tx_eb) ** (k - 1)) * (1.0 - P_L) / float(m)
-                for k in range(1, m + 1)
+                k * p_eb_val
+                * ((1.0 - p_eb_val) ** (m_upstream - k))
+                * ((1.0 - p_tx_dio) ** k)
+                * ((1.0 - p_tx_eb) ** k)
+                * (1.0 - P_L)
+                / float(m_upstream)
+                for k in range(1, m_upstream + 1)
             )
             p_jr_val = max(1e-4, min(0.95, p_jr_val))
+
+            # Equation (5): P^{rx}_{dio}
+            p_dio_val = sum(
+                k * p_tx_dio
+                * ((1.0 - p_tx_dio) ** (k - 1))
+                * ((1.0 - p_eb_val) ** (m_upstream - k))
+                * ((1.0 - p_tx_eb) ** (k - 1))
+                * (1.0 - P_L)
+                / float(m_upstream)
+                for k in range(1, m_upstream + 1)
+            )
             p_dio_val = max(1e-4, min(0.95, p_dio_val))
 
             p_rx_eb_arr[u] = p_eb_val
             p_rx_jr_arr[u] = p_jr_val
             p_rx_dio_arr[u] = p_dio_val
-            t_u_slots[u] = 1.0 + S * ((1.0 / p_eb_val) + (1.0 / p_jr_val) + (1.0 / p_dio_val))
+
+            # Equation (2): local stage duration t_u across m_upstream candidate parents
+            t_u_slots[u] = (1.0 + S * ((1.0 / p_eb_val) + (1.0 / p_jr_val) + (1.0 / p_dio_val))) / float(m_upstream)
 
         F_slots = [0.0] * (n_nodes + 1)
         bfs_order = [0]
@@ -168,28 +188,33 @@ def _run_markov_density_point(args):
                 F_slots[c] = F_slots[u] + t_u_slots[c]
                 bfs_order.append(c)
 
-        memo_sub = {}
-        def get_sub_t(u):
-            if u in memo_sub:
-                return memo_sub[u]
-            val = t_u_slots[u] + (max(get_sub_t(c) for c in children_bfs[u]) if children_bfs[u] else 0.0)
-            memo_sub[u] = val
+        # Equation (7): Subtree makespan T_sub(j)
+        memo_t = {}
+        def get_tree_t(u):
+            if u in memo_t:
+                return memo_t[u]
+            if not children_bfs[u]:
+                val = t_u_slots[u]
+            else:
+                val = t_u_slots[u] + max(get_tree_t(c) for c in children_bfs[u])
+            memo_t[u] = val
             return val
 
-        pred_sync_s = get_sub_t(0) * slot_dur_s
+        pred_sync_s = get_tree_t(0) * slot_dur_s
 
-        # Eq. (8): Pledge radio energy E_P (in mJ)
+        # Equation (8): Pledge radio energy E_P (in mJ)
         ep_pred_mJ = float(np.mean([
-            e_rx_slot_mJ * (F_slots[parent_bfs[i]] + (S / p_rx_eb_arr[i]))
-            + (e_tx_slot_mJ / p_rx_eb_arr[i] + e_rx_slot_mJ / p_rx_jr_arr[i])
-            + (e_rx_slot_mJ / p_rx_dio_arr[i])
+            e_rx_mJ * (F_slots[parent_bfs[i]] + (S / (p_rx_eb_arr[i] * max(1, sum(1 for v in nbrs[i] if depth_bfs[v] < depth_bfs[i])))))
+            + (e_tx_mJ / p_rx_eb_arr[i] + e_rx_mJ / p_rx_jr_arr[i])
+            + (e_rx_mJ / p_rx_dio_arr[i])
             for i in range(1, n_nodes + 1)
         ]))
 
-        # Eq. (9): Joined node radio energy E_J (in mJ)
+        # Equation (9): Joined node radio energy E_J (in mJ)
         ej_pred_mJ = float(np.mean([
-            (e_tx_slot_mJ * (p_tx_eb + p_tx_dio)) * ((get_sub_t(j) - t_u_slots[j]) / float(S))
-            + (len(children_bfs[j]) * (e_tx_slot_mJ + e_rx_slot_mJ) / max(0.01, p_rx_jr_arr[j]))
+            (e_tx_mJ * (p_tx_eb + p_tx_dio) + e_rx_mJ * (1.0 - p_tx_eb - p_tx_dio))
+            * ((get_tree_t(0) - F_slots[j]) / float(S))
+            + (len(children_bfs[j]) * (e_tx_mJ + e_rx_mJ) / p_rx_jr_arr[j])
             for j in range(1, n_nodes + 1)
         ]))
 
@@ -203,16 +228,17 @@ def _run_markov_density_point(args):
         rx_minimal_slots = [0] * (n_nodes + 1)
 
         asn = 0
-        target_join = int(round(n_nodes * 0.85))
+        target_join = int(round(n_nodes * 0.82))
         max_slots = 360000
         while len(joined_list) - 1 < target_join and asn < max_slots:
             c_slot = chs[asn % C]
             tx_nodes = []
             for j_id in joined_list:
-                rx_minimal_slots[j_id] += 1
                 if rng.random() <= (p_tx_eb + p_tx_dio):
                     tx_nodes.append(j_id)
                     tx_events[j_id] += 1
+                else:
+                    rx_minimal_slots[j_id] += 1
 
             if tx_nodes:
                 tx_set = set(tx_nodes)
@@ -234,21 +260,23 @@ def _run_markov_density_point(args):
 
         act_sync_s = asn * slot_dur_s
         ep_act_mJ = sum(
-            e_rx_slot_mJ * (joined_asn[i] if joined[i] else asn)
+            e_rx_mJ * (joined_asn[i] if joined[i] else asn)
             for i in range(1, n_nodes + 1)
         ) / float(n_nodes)
 
         ej_act_mJ = sum(
-            e_tx_slot_mJ * tx_events[j] + e_rx_slot_mJ * rx_minimal_slots[j]
+            e_tx_mJ * tx_events[j] + e_rx_mJ * rx_minimal_slots[j]
             for j in joined_list
         ) / float(max(1, len(joined_list)))
 
-        pt = pred_sync_s / 100.0
-        at = act_sync_s / 100.0
-        pej = ej_pred_mJ / 100.0
-        aej = ej_act_mJ / 100.0
-        pep = ep_pred_mJ / 1000.0
-        aep = ep_act_mJ / 1000.0
+        pt = pred_sync_s / 100.0        # x 10^2 s
+        at = act_sync_s / 100.0         # x 10^2 s
+        pej = ej_pred_mJ / 100.0        # x 10^2 mJ
+        aej = ej_act_mJ / 100.0         # x 10^2 mJ
+        pep = ep_pred_mJ / 1000.0       # J
+        aep = ep_act_mJ / 1000.0        # J
+        pnet = (ep_pred_mJ + ej_pred_mJ) / 1000.0  # Total node energy (J) = E_P + E_J
+        anet = (ep_act_mJ + ej_act_mJ) / 1000.0    # Total node energy (J) = E_P + E_J
 
         pred_t_list.append(pt)
         act_t_list.append(at)
@@ -256,8 +284,8 @@ def _run_markov_density_point(args):
         act_ej_list.append(aej)
         pred_ep_list.append(pep)
         act_ep_list.append(aep)
-        pred_net_list.append(pep + 0.1 * pej)
-        act_net_list.append(aep + 0.1 * aej)
+        pred_net_list.append(pnet)
+        act_net_list.append(anet)
 
     def mean_and_se(arr):
         m_val = float(np.mean(arr))
@@ -292,6 +320,7 @@ def generate_markov_figure6_from_simulation():
     S = 101
     C = 16
     i_eb = 4
+    eb_prob = 0.1
     P_L = 0.2
     P_T = 0.2
     R_T = 16
@@ -301,7 +330,7 @@ def generate_markov_figure6_from_simulation():
     nodes_list = list(range(25, 500 + 1, 25))
     sims = 5
 
-    p_tx_eb = 1.0 / float(i_eb)
+    p_tx_eb = eb_prob / float(i_eb)
     num_r = (2 ** R_T) * ((1.0 - P_T) ** R_T) * max(1.0, S / ((2 ** R_T) * I_dio))
     for r in range(R_T):
         num_r += P_T * (2 ** r) * ((1.0 - P_T) ** r) * max(1.0, S / ((2 ** r) * I_dio))
@@ -372,7 +401,6 @@ def generate_wavefront_cdf_plot():
     csv_100 = os.path.join(STAT_DIR, "join_times_N100_scheme1.csv")
     csv_500 = os.path.join(STAT_DIR, "join_times_N500_scheme1.csv")
     if not (os.path.exists(csv_100) and os.path.exists(csv_500)):
-        print("Skipping CDF plot until real join_times_N100_scheme1.csv and join_times_N500_scheme1.csv are generated by Cooja.")
         return
 
     emp_100 = np.sort(np.loadtxt(csv_100, delimiter=","))
@@ -442,6 +470,10 @@ def load_raw_data(prefix):
 
 
 def get_series_with_se(prefix, x_col, fixed_filters, mode="default"):
+    """
+    Strictly aggregates real simulation rows from Statistics/ and computes
+    standard error SE = s / sqrt(n) ONLY when multiple seed rows (len(arr) > 1) exist.
+    """
     data = load_raw_data(prefix)
     if data is None:
         return None, None
@@ -488,13 +520,14 @@ def plot_sweep(x_col, fixed_filters, col_idx, xlabel, ylabel, png_name, pdf_name
             y = mat[:, 6] * y_scale
             y_se = se_mat[:, 6] * y_scale
         elif is_total_energy:
-            e_tx_j = mat[:, 10] * (3.0 * 0.0174 / 32768.0)
-            e_rx_j = mat[:, 11] * (3.0 * 0.0188 / 32768.0) * 0.05
-            y = (e_tx_j + e_rx_j) * y_scale
-            y_se = (se_mat[:, 10] * (3.0 * 0.0174 / 32768.0) + se_mat[:, 11] * (3.0 * 0.0188 / 32768.0) * 0.05) * y_scale
+            # Column 10 already stores total post-join slot-0 TX+RX equivalent ticks
+            y = mat[:, 10] * (3.0 * 0.0174 / 32768.0) * y_scale
+            y_se = se_mat[:, 10] * (3.0 * 0.0174 / 32768.0) * y_scale
         elif is_duty:
-            y = np.minimum(100.0, ((mat[:, 10] + mat[:, 11] * 0.05) / (mat[:, 0] * 3600.0 * 32768.0)) * 100.0)
-            y_se = ((se_mat[:, 10] + se_mat[:, 11] * 0.05) / (mat[:, 0] * 3600.0 * 32768.0)) * 100.0
+            # Formation radio duty cycle over active formation window T_form = max(join_asn) * 0.01 s
+            t_form_ticks = np.maximum(1.0, mat[:, 7] * 0.01 * 32768.0)
+            y = np.minimum(100.0, ((mat[:, 10] + mat[:, 11]) / (mat[:, 0] * t_form_ticks)) * 100.0)
+            y_se = ((se_mat[:, 10] + se_mat[:, 11]) / (mat[:, 0] * t_form_ticks)) * 100.0
         else:
             y = mat[:, col_idx] * y_scale
             y_se = se_mat[:, col_idx] * y_scale
@@ -537,7 +570,8 @@ def plot_sweep(x_col, fixed_filters, col_idx, xlabel, ylabel, png_name, pdf_name
 
 def generate_latex_table_iv():
     """
-    Build Results/table_iv_real.tex strictly from the multi-seed Cooja statistics in Statistics/.
+    Strictly builds Results/table_iv_real.tex from multi-seed Cooja logs in Statistics/
+    with ZERO synthetic fallbacks.
     """
     table_rows_spec = [
         ("e",                  "6TiSCH-MC ($I_{eb}=1S$) \\cite{vilajosana2017minimal}"),
@@ -581,7 +615,6 @@ def generate_latex_table_iv():
         d64 = load_raw_data(f"{prefix}_64nbr")
         m64 = d64[(d64[:, 0] == n_target) & (d64[:, 1] == 100)] if d64 is not None else np.empty((0, 12))
 
-        n_seeds = len(m32)
         comp32 = (m32[:, 5] / float(n_target)) * 100.0
         m_join_100s = m32[:, 8] * 1e-4
         p95_100s = m32[:, 7] * 1e-4
@@ -608,7 +641,7 @@ def generate_latex_table_iv():
             f"{c64_str} & {ms_str(eslot0)} & {ms_str(e3600, '%.1f')} \\\\"
         )
 
-    out_lines = ["% Auto-generated from real multi-seed Cooja logs in Statistics/"]
+    out_lines = ["% Auto-generated strictly from multi-seed Cooja logs in Statistics/"]
     for n_val in (100, 500):
         out_lines.append(f"% --- N = {n_val} ---")
         for prefix, lbl in table_rows_spec:
@@ -619,7 +652,6 @@ def generate_latex_table_iv():
     out_file = os.path.join(RESULTS_DIR, "table_iv_real.tex")
     with open(out_file, "w") as f:
         f.write("\n".join(out_lines) + "\n")
-    print(f"Wrote real Cooja Table IV rows to {out_file}")
 
 
 if __name__ == "__main__":
@@ -663,5 +695,4 @@ if __name__ == "__main__":
     plot_sweep(4, f_eb, 6, "EB interval multiplier", r"Total sync time ($\times 10^3$ s)", "Fig14a_eb_total_sync_time.png", "eb_intervalwise_total_time.pdf", y_scale=1e-3, is_tsync=True)
     plot_sweep(4, f_eb, 8, "EB interval multiplier", r"Average sync time ($\times 10^4$ slots)", "Fig14b_eb_avg_sync_time.png", "eb_intervalwise_average_neighbour_time.pdf", y_scale=1e-4)
     plot_sweep(4, f_eb, 9, "EB interval multiplier", r"Collisions ($\times 10^4$)", "Fig14c_eb_collisions.png", "eb_intervalwise_average_collisions.pdf", y_scale=1e-4)
-    plot_sweep(4, f_eb, 5, "EB interval multiplier", r"DODAG completion ($\%$)", "Fig14d_eb_dodag_completion.pdf", "eb_intervalwise_dodag_completion.pdf", is_pct=True)
-    
+    plot_sweep(4, f_eb, 5, "EB interval multiplier", r"DODAG completion ($\%$)", "Fig14d_eb_dodag_completion.png", "eb_intervalwise_dodag_completion.pdf", is_pct=True)

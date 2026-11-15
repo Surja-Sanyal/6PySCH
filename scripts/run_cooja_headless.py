@@ -238,8 +238,8 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
 
     all_join_seconds = []
 
-    join_re = re.compile(r"CSV_JOIN,id=(\d+),asn=(\d+),scan_rx_us=(\d+),parent=(\d+),tier=(\d+),nbrs=(\d+)")
-    tx_re = re.compile(r"CSV_SLOT0_TX,id=(\d+),sf=(\d+),ch=(\d+),tier=(\d+),parent=(\d+),sub=(\d+)")
+    join_re = re.compile(r"CSV_JOIN,id=(\d+),asn=(\d+),sync_asn=(\d+),scan_rx_us=(\d+),parent=(\d+),tier=(\d+),nbrs=(\d+)")
+    tx_re = re.compile(r"CSV_SLOT0_TX,id=(\d+),sf=(\d+),ch=(\d+),tier=(\d+),parent=(\d+),sub=(\d+),dsf=(\d+),q=(\d+)")
     en_re = re.compile(r"CSV_ENERGEST,id=(\d+),sf=(\d+),eb=(\d+),tx_us=(\d+),rx_us=(\d+),nbrs=(\d+),switches=(\d+),retries=(\d+)")
 
     for seed in seeds:
@@ -283,10 +283,10 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
             if mj:
                 nid = int(mj.group(1))
                 joined_asns[nid] = int(mj.group(2))
-                scan_rx_us_map[nid] = int(mj.group(3))
-                node_parent[nid] = int(mj.group(4))
-                node_tier[nid] = int(mj.group(5))
-                node_nbrs[nid] = int(mj.group(6))
+                scan_rx_us_map[nid] = int(mj.group(4))
+                node_parent[nid] = int(mj.group(5))
+                node_tier[nid] = int(mj.group(6))
+                node_nbrs[nid] = int(mj.group(7))
                 continue
 
             mt = tx_re.search(line)
@@ -348,24 +348,20 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         t_pen_s = 320.0 * (0.65 + 0.35 * (n_nodes / 200.0)) * (0.75 + 0.25 * (sf_len / 61.0)) * (0.80 + 0.20 * (n_ch / 16.0))
         t_sync_hat_s = 0.55 * median_join_s + unjoined_frac * t_pen_s
 
-        # Convert real Energest microseconds back to 32,768 Hz ticks for columns 10 & 11
+        # Pure post-join timeslot-0 active energy ticks (col 10) and pure pre-join scan RX ticks (col 11)
         slot0_tx_us_sum = sum(node_tx_us.values())
         slot0_rx_us_sum = sum(node_rx_us.values())
-        scan_rx_us_sum = sum(scan_rx_us_map.values()) + int(round((n_nodes - num_joined) * 3600.0 * 1e6))
+        scan_rx_us_sum = sum(scan_rx_us_map.values())
 
-        tx_ticks_32k = int(round((slot0_tx_us_sum + 0.5 * slot0_rx_us_sum) * 32768.0 / 1e6))
-        rx_ticks_32k = int(round(scan_rx_us_sum * 32768.0 / 1e6))
-
-        mean_switches = float(np.mean(list(node_switches.values()))) if node_switches else 0.0
-        mean_retries = float(np.mean(list(node_retries.values()))) if node_retries else 0.0
-        max_sf = max([k[0] for k in sf_ch_senders.keys()] + [1])
-        eb_rate = float(sum(node_eb_cnt.values())) / float(max(1, num_joined * max_sf))
+        # Equivalent 32,768 Hz ticks at Zolertia Z1 currents (17.4 mA TX, 18.8 mA RX)
+        slot0_equiv_tx_ticks = int(round((slot0_tx_us_sum + (18.8 / 17.4) * slot0_rx_us_sum) * 32768.0 / 1e6))
+        scan_rx_ticks_32k = int(round(scan_rx_us_sum * 32768.0 / 1e6))
 
         with open(stat_file, "a") as fp:
             row = [
                 n_nodes, area, n_ch, sf_len, eb_mult,
                 num_joined, round(t_sync_hat_s, 4), round(p95_join_asn, 2), round(mean_join_asn, 2),
-                coll_total, tx_ticks_32k, rx_ticks_32k,
+                coll_total, slot0_equiv_tx_ticks, scan_rx_ticks_32k,
                 seed, round(eb_rate, 4), coll_tree, coll_sib, coll_cross,
                 round(mean_switches, 4), round(mean_retries, 4)
             ]

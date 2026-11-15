@@ -43,6 +43,7 @@ jobs:
             *.png
             Plots/
             Results/
+            Results/table_iv_real.tex
 
       - name: Auto-Commit Merged Results to Repository
         run: |
