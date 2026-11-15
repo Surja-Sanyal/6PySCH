@@ -57,9 +57,10 @@ jobs:
           rm -rf /home/user/contiki-ng
           ln -sfn "$GITHUB_WORKSPACE/contiki-ng-define" /home/user/contiki-ng
 
-          # Pre-flight compile check to verify node.c compiles cleanly with zero errors
-          make -C experiments/define-sync clean
-          make -C experiments/define-sync -j4 node.cooja TARGET=cooja SYNC_SCHEME=${{ matrix.scheme }} SF_LENGTH=61 NUM_CHANNELS=16 EB_MULT=1
+          # Pre-flight compile check using TARGET=native (as required by Makefile.cooja outside Cooja JNI)
+          make -C experiments/define-sync clean TARGET=native
+          make -C experiments/define-sync -j4 TARGET=native SYNC_SCHEME=${{ matrix.scheme }} SF_LENGTH=61 NUM_CHANNELS=16 EB_MULT=1
+          make -C experiments/define-sync clean TARGET=native
 
           python3 -c "import scripts.run_cooja_headless as r; s=list(range(1, int('${{ inputs.num_seeds }}' or '5') + 1)); r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
 
@@ -112,8 +113,10 @@ jobs:
           rm -rf /home/user/contiki-ng
           ln -sfn "$GITHUB_WORKSPACE/contiki-ng-define" /home/user/contiki-ng
 
-          make -C experiments/define-sync clean
-          make -C experiments/define-sync -j4 node.cooja TARGET=cooja SYNC_SCHEME=${{ matrix.scheme }} SF_LENGTH=61 NUM_CHANNELS=16 EB_MULT=1
+          # Pre-flight compile check using TARGET=native
+          make -C experiments/define-sync clean TARGET=native
+          make -C experiments/define-sync -j4 TARGET=native SYNC_SCHEME=${{ matrix.scheme }} SF_LENGTH=61 NUM_CHANNELS=16 EB_MULT=1
+          make -C experiments/define-sync clean TARGET=native
 
           python3 -c "import scripts.run_cooja_headless as r; s=list(range(1, int('${{ inputs.num_seeds }}' or '5') + 1)); r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
 
