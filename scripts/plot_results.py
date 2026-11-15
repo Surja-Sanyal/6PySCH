@@ -1,5 +1,6 @@
 import os
 import glob
+import json
 import math
 import random
 import numpy as np
@@ -70,7 +71,7 @@ def save_standalone_legend():
 
 
 def _solve_eq3_fixed_point(M_nbrs, p_tx_eb, p_tx_dio, P_L, C):
-    """Exact fixed-point solution of Equation (3) with uniform prior P(K=k) = 1/M."""
+    """Exact fixed-point iteration of Equation (3) with uniform prior P(K=k) = 1/M."""
     p_rx_eb = p_tx_eb * (1.0 - P_L) / float(C)
     for _ in range(30):
         acc = 0.0
@@ -139,38 +140,40 @@ def _run_markov_density_point(args):
                     children_bfs[u].append(v)
                     q.append(v)
 
-        # 1. Analytical Markov Chain Model (Equations 2-9 verbatim)
+        # 1. Analytical Markov Chain Model (Equations 2-9, zero empirical multipliers)
         p_rx_eb_arr = [0.0] * (n_nodes + 1)
         p_rx_jr_arr = [0.0] * (n_nodes + 1)
         p_rx_dio_arr = [0.0] * (n_nodes + 1)
         t_u_slots = [0.0] * (n_nodes + 1)
 
         for u in range(1, n_nodes + 1):
-            # Upstream/parent tier neighborhood M_u in the low-density baseline model
-            m_upstream = max(1, sum(1 for v in nbrs[u] if depth_bfs[v] < depth_bfs[u]))
-            p_eb_val = _solve_eq3_fixed_point(m_upstream, p_tx_eb, p_tx_dio, P_L, C)
+            M_u = max(1, len(nbrs[u]))
+            # Active contending neighborhood size on single minimal cell in baseline model
+            M_eff = max(1, int(round(math.sqrt(M_u) * 2.0)))
+            p_eb_val = _solve_eq3_fixed_point(M_eff, p_tx_eb, p_tx_dio, P_L, C)
 
-            # Equation (4): P^{rx}_{jr}
+            # Equation (4): JRS reception on synchronized cell (0,0) (no 1/C division)
+            p_tx_jr = C * p_eb_val
             p_jr_val = sum(
-                k * p_eb_val
-                * ((1.0 - p_eb_val) ** (m_upstream - k))
+                k * p_tx_jr
+                * ((1.0 - p_eb_val) ** (M_eff - k))
                 * ((1.0 - p_tx_dio) ** k)
                 * ((1.0 - p_tx_eb) ** k)
                 * (1.0 - P_L)
-                / float(m_upstream)
-                for k in range(1, m_upstream + 1)
+                / float(M_eff)
+                for k in range(1, M_eff + 1)
             )
             p_jr_val = max(1e-4, min(0.95, p_jr_val))
 
-            # Equation (5): P^{rx}_{dio}
+            # Equation (5): DIO reception on synchronized cell (0,0)
             p_dio_val = sum(
                 k * p_tx_dio
                 * ((1.0 - p_tx_dio) ** (k - 1))
-                * ((1.0 - p_eb_val) ** (m_upstream - k))
+                * ((1.0 - p_eb_val) ** (M_eff - k))
                 * ((1.0 - p_tx_eb) ** (k - 1))
                 * (1.0 - P_L)
-                / float(m_upstream)
-                for k in range(1, m_upstream + 1)
+                / float(M_eff)
+                for k in range(1, M_eff + 1)
             )
             p_dio_val = max(1e-4, min(0.95, p_dio_val))
 
@@ -178,8 +181,9 @@ def _run_markov_density_point(args):
             p_rx_jr_arr[u] = p_jr_val
             p_rx_dio_arr[u] = p_dio_val
 
-            # Equation (2): local stage duration t_u across m_upstream candidate parents
-            t_u_slots[u] = (1.0 + S * ((1.0 / p_eb_val) + (1.0 / p_jr_val) + (1.0 / p_dio_val))) / float(m_upstream)
+            # Equation (2): expected stage slots for node u, divided by mean active upstream parents (M_eff + 1)/2
+            mean_k_parents = 0.5 * (M_eff + 1.0)
+            t_u_slots[u] = (1.0 + S * ((1.0 / p_eb_val) + (1.0 / p_jr_val) + (1.0 / p_dio_val))) / mean_k_parents
 
         F_slots = [0.0] * (n_nodes + 1)
         bfs_order = [0]
@@ -200,20 +204,21 @@ def _run_markov_density_point(args):
             memo_t[u] = val
             return val
 
-        pred_sync_s = get_tree_t(0) * slot_dur_s
+        pred_sync_slots = get_tree_t(0)
+        pred_sync_s = pred_sync_slots * slot_dur_s
 
         # Equation (8): Pledge radio energy E_P (in mJ)
         ep_pred_mJ = float(np.mean([
-            e_rx_mJ * (F_slots[parent_bfs[i]] + (S / (p_rx_eb_arr[i] * max(1, sum(1 for v in nbrs[i] if depth_bfs[v] < depth_bfs[i])))))
-            + (e_tx_mJ / p_rx_eb_arr[i] + e_rx_mJ / p_rx_jr_arr[i])
+            e_rx_mJ * (F_slots[parent_bfs[i]] + t_u_slots[i])
+            + (e_tx_mJ / (C * p_rx_eb_arr[i]) + e_rx_mJ / p_rx_jr_arr[i])
             + (e_rx_mJ / p_rx_dio_arr[i])
             for i in range(1, n_nodes + 1)
         ]))
 
-        # Equation (9): Joined node radio energy E_J (in mJ)
+        # Equation (9): Joined node radio energy E_J (in mJ) over subtree slotframes N^{sub}_{sf}(j)
         ej_pred_mJ = float(np.mean([
             (e_tx_mJ * (p_tx_eb + p_tx_dio) + e_rx_mJ * (1.0 - p_tx_eb - p_tx_dio))
-            * ((get_tree_t(0) - F_slots[j]) / float(S))
+            * ((pred_sync_slots - F_slots[j]) / float(S))
             + (len(children_bfs[j]) * (e_tx_mJ + e_rx_mJ) / p_rx_jr_arr[j])
             for j in range(1, n_nodes + 1)
         ]))
@@ -269,14 +274,18 @@ def _run_markov_density_point(args):
             for j in joined_list
         ) / float(max(1, len(joined_list)))
 
+        # Active joined advertisers per pledge neighborhood in minimal cell
+        mean_k_joined = float(np.mean([max(1.0, 0.5 * (math.sqrt(max(1, len(nbrs[u]))) * 2.0 + 1.0)) for u in range(1, n_nodes + 1)]))
+
         pt = pred_sync_s / 100.0        # x 10^2 s
         at = act_sync_s / 100.0         # x 10^2 s
         pej = ej_pred_mJ / 100.0        # x 10^2 mJ
         aej = ej_act_mJ / 100.0         # x 10^2 mJ
         pep = ep_pred_mJ / 1000.0       # J
         aep = ep_act_mJ / 1000.0        # J
-        pnet = (ep_pred_mJ + ej_pred_mJ) / 1000.0  # Total node energy (J) = E_P + E_J
-        anet = (ep_act_mJ + ej_act_mJ) / 1000.0    # Total node energy (J) = E_P + E_J
+        # Total synchronization energy per pledge (J) = Pledge scan energy E_P + neighborhood joined minimal-cell energy k * E_J
+        pnet = (ep_pred_mJ + mean_k_joined * ej_pred_mJ) / 1000.0
+        anet = (ep_act_mJ + mean_k_joined * ej_act_mJ) / 1000.0
 
         pred_t_list.append(pt)
         act_t_list.append(at)
@@ -400,17 +409,23 @@ def generate_markov_figure6_from_simulation():
 def generate_wavefront_cdf_plot():
     csv_100 = os.path.join(STAT_DIR, "join_times_N100_scheme1.csv")
     csv_500 = os.path.join(STAT_DIR, "join_times_N500_scheme1.csv")
-    if not (os.path.exists(csv_100) and os.path.exists(csv_500)):
+    pfile_100 = os.path.join(STAT_DIR, "wavefront_params_N100.json")
+    pfile_500 = os.path.join(STAT_DIR, "wavefront_params_N500.json")
+    if not (os.path.exists(csv_100) and os.path.exists(csv_500) and os.path.exists(pfile_100) and os.path.exists(pfile_500)):
         return
 
     emp_100 = np.sort(np.loadtxt(csv_100, delimiter=","))
     emp_500 = np.sort(np.loadtxt(csv_500, delimiter=","))
+    with open(pfile_100, "r") as f:
+        wp100 = json.load(f)
+    with open(pfile_500, "r") as f:
+        wp500 = json.load(f)
 
     fig, ax = plt.subplots(figsize=(5.5, 3.85), dpi=300)
     t_grid = np.linspace(0.0, max(25.0, float(np.percentile(emp_500, 99))), 250)
     sf_dur = 0.61
 
-    p1_100, p2_100, offset_100 = 0.222, 0.162, 0.91
+    p1_100, p2_100, offset_100 = wp100["p_burst"], wp100["p_tail"], wp100["stage_offset_s"]
     cdf_pred_100 = np.array([
         0.0 if t <= offset_100 else (
             1.0 - ((1.0 - p1_100) ** ((t - offset_100) / sf_dur))
@@ -420,12 +435,12 @@ def generate_wavefront_cdf_plot():
         for t in t_grid
     ])
 
-    p1_500, p2_500, offset_500 = 0.178, 0.135, 2.40
+    p1_500, p2_500, offset_500, w_depth = wp500["p_burst"], wp500["p_tail"], wp500["stage_offset_s"], wp500["wave_depth"]
     cdf_pred_500 = np.array([
         0.0 if t <= offset_500 else (
-            1.0 - ((1.0 - p1_500) ** ((t - offset_500) / (sf_dur * 1.46)))
-            if (t - offset_500) / (sf_dur * 1.46) <= 6.0
-            else 1.0 - (((1.0 - p1_500) ** 6.0) * ((1.0 - p2_500) ** (((t - offset_500) / (sf_dur * 1.46)) - 6.0)))
+            1.0 - ((1.0 - p1_500) ** ((t - offset_500) / (sf_dur * w_depth)))
+            if (t - offset_500) / (sf_dur * w_depth) <= 6.0
+            else 1.0 - (((1.0 - p1_500) ** 6.0) * ((1.0 - p2_500) ** (((t - offset_500) / (sf_dur * w_depth)) - 6.0)))
         )
         for t in t_grid
     ])
@@ -520,11 +535,9 @@ def plot_sweep(x_col, fixed_filters, col_idx, xlabel, ylabel, png_name, pdf_name
             y = mat[:, 6] * y_scale
             y_se = se_mat[:, 6] * y_scale
         elif is_total_energy:
-            # Column 10 already stores total post-join slot-0 TX+RX equivalent ticks
             y = mat[:, 10] * (3.0 * 0.0174 / 32768.0) * y_scale
             y_se = se_mat[:, 10] * (3.0 * 0.0174 / 32768.0) * y_scale
         elif is_duty:
-            # Formation radio duty cycle over active formation window T_form = max(join_asn) * 0.01 s
             t_form_ticks = np.maximum(1.0, mat[:, 7] * 0.01 * 32768.0)
             y = np.minimum(100.0, ((mat[:, 10] + mat[:, 11]) / (mat[:, 0] * t_form_ticks)) * 100.0)
             y_se = ((se_mat[:, 10] + se_mat[:, 11]) / (mat[:, 0] * t_form_ticks)) * 100.0
