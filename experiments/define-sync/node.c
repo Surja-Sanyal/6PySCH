@@ -41,6 +41,10 @@ static uint8_t parent_switched_flag = 0;
 static uint32_t last_sync_asn = 0;
 static uint8_t cached_h_u = 0;
 
+/* Forward declarations */
+static void update_advertising_link(uint16_t ch_offset);
+static void safe_set_eb_period(clock_time_t period);
+
 /* 16-entry uint8 lookup table for exp(-gamma) scaled by 255 (P_min = 0.15 -> 38/255) */
 static const uint8_t exp_lut[16] = {
   255, 199, 155, 120, 94, 73, 57, 48, 45, 42, 40, 38, 38, 38, 38, 38
@@ -146,23 +150,35 @@ define_on_new_time_source(const struct tsch_neighbor *old, const struct tsch_nei
 }
 
 static void
-set_slot0_link(uint16_t ch_offset, uint8_t link_opts)
+update_advertising_link(uint16_t ch_offset)
 {
   sf_min = tsch_schedule_get_slotframe_by_handle(0);
-  if(sf_min != NULL && !tsch_is_locked()) {
-    struct tsch_link *l = tsch_schedule_get_link_by_timeslot(sf_min, 0);
-    if(l != NULL) {
-      if(ch_offset != last_ch_offset || link_opts != l->link_options) {
-        l->channel_offset = (uint8_t)ch_offset;
-        l->link_options = link_opts;
-        l->link_type = LINK_TYPE_ADVERTISING;
-        last_ch_offset = ch_offset;
-      }
-    } else {
-      tsch_schedule_add_link(sf_min, link_opts, LINK_TYPE_ADVERTISING,
-                             &tsch_broadcast_address, 0, (uint8_t)ch_offset, 1);
+  if(sf_min != NULL && ch_offset != last_ch_offset && !tsch_is_locked()) {
+    uint16_t adv_slot = (uint16_t)(1 + (node_id % 2));
+    struct tsch_link *existing = tsch_schedule_get_link_by_timeslot(sf_min, adv_slot);
+    if(existing != NULL) {
+      existing->channel_offset = ch_offset;
+      last_ch_offset = ch_offset;
+    } else if(ch_offset == 0) {
+      last_ch_offset = 0;
+    } else if(tsch_schedule_add_link(sf_min,
+         LINK_OPTION_TX | LINK_OPTION_RX | LINK_OPTION_SHARED,
+         LINK_TYPE_ADVERTISING, &tsch_broadcast_address, adv_slot, ch_offset, 1) != NULL) {
       last_ch_offset = ch_offset;
     }
+
+#if SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28)
+    uint16_t adv_slot2 = (uint16_t)(3 + (node_id % 2));
+    uint16_t ch_off2 = (uint16_t)((ch_offset + 1) % NUM_CHANNELS);
+    struct tsch_link *ex2 = tsch_schedule_get_link_by_timeslot(sf_min, adv_slot2);
+    if(ex2 != NULL) {
+      ex2->channel_offset = ch_off2;
+    } else {
+      tsch_schedule_add_link(sf_min,
+        LINK_OPTION_TX | LINK_OPTION_RX | LINK_OPTION_SHARED,
+        LINK_TYPE_ADVERTISING, &tsch_broadcast_address, adv_slot2, ch_off2, 1);
+    }
+#endif
   }
 }
 
@@ -438,7 +454,7 @@ apply_scheme_schedule(void)
     if(sync_age_slots >= 3000UL) {
       if(sync_wait_cnt < 20) {
         sync_wait_cnt++;
-        update_advertising_link(parent_ch_offset);
+        set_slot0_link(parent_ch_offset, LINK_OPTION_RX | LINK_OPTION_TIME_KEEPING);
         return;
       } else {
         parent_ch_offset = (uint8_t)((parent_ch_offset + 1) % NUM_CHANNELS);
