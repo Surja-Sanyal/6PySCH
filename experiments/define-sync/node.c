@@ -145,7 +145,6 @@ define_on_new_time_source(const struct tsch_neighbor *old, const struct tsch_nei
   }
 }
 
-/* Keep base cell (0,0) intact and configure vertical advertising link(s) for DEFINE */
 static void
 update_advertising_link(uint16_t ch_offset)
 {
@@ -165,7 +164,6 @@ update_advertising_link(uint16_t ch_offset)
     }
 
 #if SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28)
-    /* Secondary tier-clustered discovery link so pledges sweeping across offsets lock immediately */
     uint16_t adv_slot2 = (uint16_t)(3 + (node_id % 2));
     uint16_t ch_off2 = (uint16_t)((ch_offset + 1) % NUM_CHANNELS);
     struct tsch_link *ex2 = tsch_schedule_get_link_by_timeslot(sf_min, adv_slot2);
@@ -208,7 +206,7 @@ compute_adapt_q_u8(uint32_t asn_now, int nbrs, uint8_t use_age, uint8_t use_dens
   uint16_t sqrt_scaled = isqrt_u16((uint16_t)(eff_n * 100));
   uint32_t gamma_q2 = (delta_asn * sqrt_scaled * 4UL) / ((uint32_t)NUM_CHANNELS * (uint32_t)SF_LENGTH * 10UL);
   uint8_t lut_idx = (gamma_q2 > 15) ? 15 : (uint8_t)gamma_q2;
-  return (exp_lut[lut_idx] > 48) ? exp_lut[lut_idx] : 48;
+  return (exp_lut[lut_idx] > 38) ? exp_lut[lut_idx] : 38;
 }
 
 static void
@@ -409,7 +407,8 @@ apply_scheme_schedule(void)
       uint8_t rgb_phase = (uint8_t)(sf_num % 3);
       uint8_t sub_band = (NUM_CHANNELS >= 3) ? (NUM_CHANNELS / 3) : 1;
       ch_offset_u = (uint8_t)((rgb_phase * sub_band + (node_id % sub_band)) % NUM_CHANNELS);
-      tx_prob_u8 = (rgb_phase == 0) ? 110 : ((rgb_phase == 1) ? 72 : 45);
+      uint8_t base_p = (rgb_phase == 0) ? 110 : ((rgb_phase == 1) ? 72 : 45);
+      tx_prob_u8 = (uint8_t)(base_p / EB_MULT);
       log_prob_u8 = 175;
       break;
     }
@@ -479,15 +478,8 @@ apply_scheme_schedule(void)
   update_advertising_link(ch_offset_u);
 
   uint32_t delta_sf = (asn_now > join_asn) ? ((asn_now - join_asn) / SF_LENGTH) : 0;
-  clock_time_t target_period;
-  if(SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28)) {
-    /* DEFINE normalizes time into slotframes and keeps fast recruitment without EB_MULT penalty */
-    target_period = (delta_sf < 12 || node_id <= 15)
-                      ? (one_sf_dur / 2)
-                      : (clock_time_t)((one_sf_dur * 128UL) / (tx_prob_u8 > 48 ? tx_prob_u8 : 48));
-  } else {
-    target_period = (clock_time_t)((base_sf_dur * 255UL) / (tx_prob_u8 > 0 ? tx_prob_u8 : 38));
-  }
+  clock_time_t sched_base = (SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28)) ? one_sf_dur : base_sf_dur;
+  clock_time_t target_period = (clock_time_t)((sched_base * 255UL) / (tx_prob_u8 > 0 ? tx_prob_u8 : 38));
   safe_set_eb_period(target_period);
 
   uint8_t r_draw = (uint8_t)(random_rand() & 0xFF);
@@ -549,15 +541,7 @@ PROCESS_THREAD(define_node_process, ev, data)
     etimer_set(&arrival_timer, arrival_delay);
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&arrival_timer));
 #else
-    /* Under single-slot / uncoordinated baselines, initial contention delay increases with
-       channel scan space and neighbor table cap (32 vs 64 entries) */
-#if !(SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28))
-    clock_time_t contention_delay = (clock_time_t)(((node_id % 16) * CLOCK_SECOND * EB_MULT) / 2);
-    etimer_set(&arrival_timer, contention_delay);
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&arrival_timer));
-#else
     (void)arrival_timer;
-#endif
 #endif
     boot_asn = tsch_current_asn.ls4b;
     energest_flush();
@@ -571,13 +555,6 @@ PROCESS_THREAD(define_node_process, ev, data)
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&check_timer));
 
     if(tsch_is_associated) {
-      /* Enforce neighbor-table capacity check (32 vs 64 entries) on high-index relays */
-#if NBR_CAP == 32
-      if(node_id > 470 && (random_rand() % 100) < 80) {
-        etimer_reset(&check_timer);
-        continue;
-      }
-#endif
       last_ch_offset = 0xFFFF;
       join_asn = tsch_current_asn.ls4b;
       last_sync_asn = join_asn;
