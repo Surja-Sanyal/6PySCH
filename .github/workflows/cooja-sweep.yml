@@ -29,6 +29,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up JDK 17 (Required to prevent Java 25 bytecode mismatch with Gradle 8.1.1)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Cache Gradle Dependencies Across All Jobs
         uses: actions/cache@v4
         with:
@@ -74,6 +80,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
       - name: Cache Gradle Dependencies
         uses: actions/cache@v4
         with:
@@ -115,6 +127,12 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
 
       - name: Download All Partial Artifacts
         uses: actions/download-artifact@v4
