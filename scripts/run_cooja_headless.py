@@ -106,7 +106,7 @@ def build_interference_adj(coords, tx_range=50.0):
     return adj
 
 
-def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=120000, nbr_cap=64):
+def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=110000, nbr_cap=64):
     poisson_flag = 1 if scheme_id == 28 else 0
     rx_success = 0.85 if scheme_id == 26 else 1.0
     make_vars = (
@@ -120,7 +120,7 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
       <identifier>cooja_define</identifier>
       <description>Cooja DEFINE Mote</description>
       <source>{EXP_DIR}/node.c</source>
-      <commands>make clean TARGET=cooja &amp;&amp; make -j4 node.cooja TARGET=cooja {make_vars}</commands>
+      <commands>make -j4 node.cooja TARGET=cooja {make_vars}</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>
       <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiVib</moteinterface>
@@ -241,7 +241,16 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
     en_re = re.compile(r"CSV_ENERGEST,id=(\d+),sf=(\d+),eb=(\d+),tx_us=(\d+),rx_us=(\d+),nbrs=(\d+),switches=(\d+),retries=(\d+)")
 
     for seed in seeds:
+        # Clean Cooja build artifacts in Python so `<commands>` only needs a single `make` call
         shutil.rmtree(os.path.join(EXP_DIR, "build"), ignore_errors=True)
+        shutil.rmtree(os.path.join(EXP_DIR, "obj_cooja"), ignore_errors=True)
+        for f_old in os.listdir(EXP_DIR):
+            if f_old.endswith(".cooja") or f_old.endswith(".o") or f_old.endswith(".d"):
+                try:
+                    os.remove(os.path.join(EXP_DIR, f_old))
+                except OSError:
+                    pass
+
         coords = load_realdata_coords(n_nodes, area, seed=seed)
         adj = build_interference_adj(coords, tx_range=50.0)
         csc_path = os.path.join(EXP_DIR, f"sim_scheme_{scheme_id}_cap{nbr_cap}.csc")
@@ -349,7 +358,6 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
 
         c_frac = float(num_joined) / float(n_nodes)
         unjoined_frac = 1.0 - c_frac
-        # Use 90th-percentile trimmed mean for m_join so a single late boundary straggler does not create spikes
         core_asns = asns[asns <= np.percentile(asns, 90)] if len(asns) >= 5 else asns
         mean_join_asn = float(np.mean(core_asns))
         p95_join_asn = float(np.percentile(asns, 95))

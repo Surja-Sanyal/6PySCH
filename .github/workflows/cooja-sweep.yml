@@ -137,7 +137,7 @@ jobs:
       - name: Merge All Multi-Seed Statistics and Plot
         run: |
           python3 -c '
-          import os, glob, shutil
+          import os, sys, glob, shutil
 
           os.makedirs("Statistics", exist_ok=True)
           merged = {}
@@ -149,14 +149,17 @@ jobs:
                       line = line.strip()
                       if line:
                           parts = [p.strip() for p in line.split(",") if p.strip()]
-                          if len(parts) >= 12 and float(parts[5]) > 0:
-                              seed_id = int(float(parts[12])) if len(parts) > 12 else idx
+                          if len(parts) >= 19 and float(parts[5]) > 0:
+                              seed_id = int(float(parts[12]))
                               key = (int(float(parts[0])), int(float(parts[1])), int(float(parts[2])), int(float(parts[3])), int(float(parts[4])), seed_id)
                               merged.setdefault(fname, {})[key] = line
 
-          if merged:
-              for old_f in glob.glob("Statistics/*_stats_.txt"):
-                  os.remove(old_f)
+          if not merged:
+              print("FATAL ERROR: No new 19-column Cooja statistics files were produced by the simulation jobs!")
+              sys.exit(1)
+
+          for old_f in glob.glob("Statistics/*_stats_.txt"):
+              os.remove(old_f)
 
           for fname, row_dict in merged.items():
               sorted_lines = [row_dict[k] for k in sorted(row_dict.keys())]
