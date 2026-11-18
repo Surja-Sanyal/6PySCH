@@ -585,6 +585,10 @@ def generate_latex_table_iv():
             line = format_row(prefix, lbl, n_val)
             if line:
                 out_lines.append(line)
+        if n_val == 500:
+            line64 = format_row("p_64nbr", "\\textbf{\\texttt{DEFINE} (Full, 64-Entry Table)}", 500)
+            if line64:
+                out_lines.append(line64)
 
     out_file = os.path.join(RESULTS_DIR, "table_iv_real.tex")
     with open(out_file, "w") as f:

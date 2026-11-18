@@ -66,7 +66,8 @@ def load_realdata_coords(n_nodes, area=100, seed=2, tx_range=50.0):
     cx, cy = area / 2.0, area / 2.0
     coords = [(int(round(cx)), int(round(cy)))]
     max_hop_dist = tx_range * 0.72
-    max_root_dist = tx_range * 1.32
+    max_root_dist = tx_range * 0.96
+    span = min(area * 0.90, tx_range * 1.35)
 
     idx_val = (seed * 13) % max(1, len(vals))
     for i in range(n_nodes):
@@ -75,8 +76,8 @@ def load_realdata_coords(n_nodes, area=100, seed=2, tx_range=50.0):
             u1 = ((vals[idx_val % len(vals)] * 37 + i * 19) % 1000) / 1000.0 - 0.5
             u2 = ((vals[(idx_val + 7) % len(vals)] * 53 + i * 29) % 1000) / 1000.0 - 0.5
             idx_val += 1
-            x = min(area, max(0, int(round(cx + u1 * area * 0.90))))
-            y = min(area, max(0, int(round(cy + u2 * area * 0.90))))
+            x = min(area, max(0, int(round(cx + u1 * span))))
+            y = min(area, max(0, int(round(cy + u2 * span))))
             if math.hypot(x - cx, y - cy) > max_root_dist:
                 continue
             for px, py in coords:
@@ -88,7 +89,7 @@ def load_realdata_coords(n_nodes, area=100, seed=2, tx_range=50.0):
                 break
         if not placed:
             angle = rng.uniform(0, 2 * math.pi)
-            r = rng.uniform(5.0, min(area * 0.45, max_root_dist * 0.85))
+            r = rng.uniform(5.0, max_root_dist * 0.90)
             nx = min(area, max(0, int(round(cx + r * math.cos(angle)))))
             ny = min(area, max(0, int(round(cy + r * math.sin(angle)))))
             coords.append((nx, ny))
@@ -284,6 +285,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         node_tx_us = {}
         node_rx_us = {}
         node_eb_cnt = {}
+        node_active_sfs = {}
         node_switches = {}
         node_retries = {}
         sf_ch_senders = {}
@@ -313,6 +315,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
             me = en_re.search(line)
             if me:
                 nid = int(me.group(1))
+                node_active_sfs[nid] = max(node_active_sfs.get(nid, 0), int(me.group(2)))
                 node_eb_cnt[nid] = max(node_eb_cnt.get(nid, 0), int(me.group(3)))
                 node_tx_us[nid] = max(node_tx_us.get(nid, 0), int(me.group(4)))
                 node_rx_us[nid] = max(node_rx_us.get(nid, 0), int(me.group(5)))
@@ -380,8 +383,8 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
 
         mean_switches = float(np.mean(list(node_switches.values()))) if node_switches else 0.0
         mean_retries = float(np.mean(list(node_retries.values()))) if node_retries else 0.0
-        max_sf = max([k[0] for k in sf_ch_senders.keys()] + [1])
-        eb_rate = float(sum(node_eb_cnt.values())) / float(max(1, num_joined * max_sf))
+        total_active_sfs = sum(node_active_sfs.values())
+        eb_rate = float(sum(node_eb_cnt.values())) / float(max(1, total_active_sfs))
 
         with open(stat_file, "a") as fp:
             row = [

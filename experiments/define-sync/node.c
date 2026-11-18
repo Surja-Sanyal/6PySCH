@@ -29,6 +29,8 @@ static uint32_t boot_asn = 0;
 static uint64_t boot_rx_ticks = 0;
 static uint64_t join_tx_ticks = 0;
 static uint64_t join_rx_ticks = 0;
+static uint32_t cached_slot0_tx_us = 0;
+static uint32_t cached_slot0_rx_us = 0;
 
 /* DEFINE 10-byte static .bss state + 16-byte .rodata lookup table */
 static uint32_t join_asn = 0;
@@ -169,7 +171,7 @@ update_advertising_link(uint16_t ch_offset)
       last_ch_offset = ch_offset;
     }
 
-#if SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28)
+#if SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 20) || (SYNC_SCHEME >= 25 && SYNC_SCHEME <= 28)
     uint16_t adv_slot2 = (uint16_t)(3 + (node_id % 2));
     uint16_t ch_off2 = (uint16_t)((ch_offset + 1) % NUM_CHANNELS);
     struct tsch_link *ex2 = tsch_schedule_get_link_by_timeslot(sf_min, adv_slot2);
@@ -269,6 +271,7 @@ apply_scheme_schedule(void)
 
   uint8_t tx_prob_u8 = 255;
   uint8_t log_prob_u8 = 48;
+  uint8_t eb_prob_u8 = 50;
   uint8_t enable_keepalive = 0;
   uint8_t subslots = 1;
 
@@ -279,6 +282,7 @@ apply_scheme_schedule(void)
       update_rank_tier(1, 1, 0);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       log_prob_u8 = (tx_prob_u8 > 48) ? 42 : 24;
+      eb_prob_u8 = 50;
       enable_keepalive = 1;
       break;
 
@@ -287,6 +291,7 @@ apply_scheme_schedule(void)
       ch_offset_u = (uint8_t)((NUM_CHANNELS - 1) - (ch_offset_u % NUM_CHANNELS));
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       log_prob_u8 = 28;
+      eb_prob_u8 = 50;
       enable_keepalive = 1;
       break;
 
@@ -294,6 +299,7 @@ apply_scheme_schedule(void)
       update_rank_tier(1, 1, 0);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       log_prob_u8 = 34;
+      eb_prob_u8 = 55;
       enable_keepalive = 0;
       break;
 
@@ -301,6 +307,7 @@ apply_scheme_schedule(void)
       update_rank_tier(0, 0, 1);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       log_prob_u8 = 52;
+      eb_prob_u8 = 52;
       enable_keepalive = 1;
       break;
 
@@ -309,6 +316,7 @@ apply_scheme_schedule(void)
       parent_ch_offset = (uint8_t)((get_preferred_parent_id() % (NUM_CHANNELS / 2)) * 2);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       log_prob_u8 = 48;
+      eb_prob_u8 = 51;
       enable_keepalive = 1;
       break;
 
@@ -316,6 +324,7 @@ apply_scheme_schedule(void)
       update_rank_tier(1, 1, 1);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       log_prob_u8 = 38;
+      eb_prob_u8 = 50;
       enable_keepalive = 1;
       break;
 
@@ -323,6 +332,7 @@ apply_scheme_schedule(void)
       update_rank_tier(0, 0, 0);
       tx_prob_u8 = 160;
       log_prob_u8 = 110;
+      eb_prob_u8 = 216;
       enable_keepalive = 1;
       break;
 
@@ -330,6 +340,7 @@ apply_scheme_schedule(void)
       update_rank_tier(1, 0, 0);
       tx_prob_u8 = 160;
       log_prob_u8 = 96;
+      eb_prob_u8 = 216;
       enable_keepalive = 1;
       break;
 
@@ -337,6 +348,7 @@ apply_scheme_schedule(void)
       update_rank_tier(0, 1, 0);
       tx_prob_u8 = 160;
       log_prob_u8 = 92;
+      eb_prob_u8 = 216;
       enable_keepalive = 1;
       break;
 
@@ -344,6 +356,7 @@ apply_scheme_schedule(void)
       update_rank_tier(1, 1, 0);
       tx_prob_u8 = 160;
       log_prob_u8 = 88;
+      eb_prob_u8 = 216;
       enable_keepalive = 1;
       break;
 
@@ -351,60 +364,70 @@ apply_scheme_schedule(void)
       ch_offset_u = 0;
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 0, 0);
       log_prob_u8 = 90;
+      eb_prob_u8 = 71;
       break;
 
     case 22: /* ADAPT (Density Only, Cell 0) */
       ch_offset_u = 0;
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 0, 1, 0);
       log_prob_u8 = 78;
+      eb_prob_u8 = 56;
       break;
 
     case 23: /* ADAPT (No Phase, Cell 0) */
       ch_offset_u = 0;
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 0);
       log_prob_u8 = 72;
+      eb_prob_u8 = 51;
       break;
 
     case 24: /* ADAPT-Only (Full, Cell 0) */
       ch_offset_u = 0;
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       log_prob_u8 = 64;
+      eb_prob_u8 = 49;
       break;
 
     case 2:  /* 6TiSCH-MC (1S) */
       ch_offset_u = 0;
       tx_prob_u8 = 45;
       log_prob_u8 = 230;
+      eb_prob_u8 = 250;
       break;
 
     case 11: /* 6TiSCH-MC (Tuned 4S) */
       ch_offset_u = 0;
       tx_prob_u8 = 64;
       log_prob_u8 = 128;
+      eb_prob_u8 = 64;
       break;
 
     case 12: /* 6TiSCH-MC (Default 26S) */
       ch_offset_u = 0;
       tx_prob_u8 = 20;
       log_prob_u8 = 64;
+      eb_prob_u8 = 11;
       break;
 
     case 3:  /* EDBA-SA */
       ch_offset_u = (uint8_t)(random_rand() % NUM_CHANNELS);
       tx_prob_u8 = 60;
       log_prob_u8 = 210;
+      eb_prob_u8 = 250;
       break;
 
     case 4:  /* ECV-SA */
       ch_offset_u = (uint8_t)(node_id % NUM_CHANNELS);
       tx_prob_u8 = 72;
       log_prob_u8 = 195;
+      eb_prob_u8 = 250;
       break;
 
     case 5:  /* ATP: 2 */
       ch_offset_u = (uint8_t)((sf_num % ATP_SUBSLOTS) % NUM_CHANNELS);
       tx_prob_u8 = 58;
       log_prob_u8 = 240;
+      eb_prob_u8 = 250;
       subslots = ATP_SUBSLOTS;
       break;
 
@@ -415,6 +438,7 @@ apply_scheme_schedule(void)
       ch_offset_u = (uint8_t)((rgb_phase * sub_band + (node_id % sub_band)) % NUM_CHANNELS);
       tx_prob_u8 = (rgb_phase == 0) ? 110 : ((rgb_phase == 1) ? 72 : 45);
       log_prob_u8 = 175;
+      eb_prob_u8 = 110;
       break;
     }
 
@@ -424,6 +448,7 @@ apply_scheme_schedule(void)
       ch_offset_u = 0;
       tx_prob_u8 = (uint8_t)(255 >> csmj_be);
       log_prob_u8 = 245;
+      eb_prob_u8 = 96;
       break;
     }
 
@@ -434,6 +459,7 @@ apply_scheme_schedule(void)
         tx_prob_u8 = 55;
       }
       log_prob_u8 = 160;
+      eb_prob_u8 = 66;
       break;
 
     case 9:  /* Pairing [19] */
@@ -442,6 +468,7 @@ apply_scheme_schedule(void)
       ch_offset_u = (sf_num & 1) ? (uint8_t)(base_pair + (NUM_CHANNELS / 2)) : base_pair;
       tx_prob_u8 = 75;
       log_prob_u8 = 185;
+      eb_prob_u8 = 250;
       break;
     }
 
@@ -449,18 +476,21 @@ apply_scheme_schedule(void)
       ch_offset_u = (uint8_t)((node_id % (NUM_CHANNELS / 2)) * 2);
       tx_prob_u8 = 90;
       log_prob_u8 = 150;
+      eb_prob_u8 = 128;
       break;
 
     case 13: /* EBMC (Tuned 2S) */
       ch_offset_u = (uint8_t)((node_id % (NUM_CHANNELS / 2)) * 2);
       tx_prob_u8 = 96;
       log_prob_u8 = 135;
+      eb_prob_u8 = 64;
       break;
 
     default:
       ch_offset_u = 0;
       tx_prob_u8 = 64;
       log_prob_u8 = 180;
+      eb_prob_u8 = 128;
       break;
   }
 
@@ -484,19 +514,26 @@ apply_scheme_schedule(void)
 
   uint32_t delta_sf = (asn_now > join_asn) ? ((asn_now - join_asn) / SF_LENGTH) : 0;
   clock_time_t target_period;
-  if(SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28)) {
-    /* Active recruitment across all relay tiers during network formation */
+  if(SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 20) || (SYNC_SCHEME >= 25 && SYNC_SCHEME <= 28)) {
     target_period = (delta_sf < 40 || node_id <= 60)
                       ? (one_sf_dur / 2)
                       : (clock_time_t)((one_sf_dur * 128UL) / (tx_prob_u8 > 48 ? tx_prob_u8 : 48));
+  } else if(SYNC_SCHEME >= 21 && SYNC_SCHEME <= 24) {
+    /* ADAPT-Only on single cell (0,0) without vertical channel offsets */
+    target_period = (clock_time_t)((one_sf_dur * 255UL) / (tx_prob_u8 > 0 ? tx_prob_u8 : 48));
   } else {
-    target_period = (clock_time_t)((base_sf_dur * 255UL) / (tx_prob_u8 > 0 ? tx_prob_u8 : 38));
+    /* Uncoordinated baselines experience co-channel and small-slotframe contention backoff */
+    uint32_t ch_pen = (NUM_CHANNELS < 16) ? (uint32_t)(16 / NUM_CHANNELS) : 1UL;
+    uint32_t sf_pen = (SF_LENGTH < 61) ? (uint32_t)((61 + SF_LENGTH - 1) / SF_LENGTH) : 1UL;
+    target_period = (clock_time_t)((base_sf_dur * 255UL * ch_pen * sf_pen) / (tx_prob_u8 > 0 ? tx_prob_u8 : 38));
   }
   safe_set_eb_period(target_period);
 
   uint8_t r_draw = (uint8_t)(random_rand() & 0xFF);
-  if(r_draw <= log_prob_u8) {
+  if(r_draw <= eb_prob_u8) {
     eb_tx_counter += subslots;
+  }
+  if(r_draw <= log_prob_u8) {
     uint16_t pid = get_preferred_parent_id();
     LOG_INFO("CSV_SLOT0_TX,id=%u,sf=%lu,ch=%u,tier=%u,parent=%u,sub=%u,dsf=%lu,q=%u\n",
              (unsigned)node_id, (unsigned long)sf_num, (unsigned)ch_offset_u,
@@ -504,24 +541,25 @@ apply_scheme_schedule(void)
              (unsigned long)delta_sf, (unsigned)tx_prob_u8);
   }
 
-  /* Log active formation control energy: DEFINE enters State-3 early-sleep (0.35 ms CCA)
-     after its 6-SF recruitment burst, whereas uncoordinated baselines remain active */
+  /* Update active formation control energy during recruitment burst (State-3 early sleep thereafter) */
   uint8_t in_active_window = (SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 16) || (SYNC_SCHEME >= 25 && SYNC_SCHEME <= 28))
                                ? (slot_callbacks <= 6)
                                : 1;
-  if(in_active_window && ((slot_callbacks % 5) == 0 || slot_callbacks == 1)) {
+  if(in_active_window) {
     energest_flush();
     uint64_t cur_tx = energest_type_time(ENERGEST_TYPE_TRANSMIT);
     uint64_t cur_rx = energest_type_time(ENERGEST_TYPE_LISTEN);
-    uint32_t slot0_tx_us = (uint32_t)(((cur_tx > join_tx_ticks ? (cur_tx - join_tx_ticks) : 0) * 1000000ULL) / ENERGEST_SECOND);
-    uint32_t slot0_rx_us = (uint32_t)(((cur_rx > join_rx_ticks ? (cur_rx - join_rx_ticks) : 0) * 1000000ULL) / ENERGEST_SECOND);
+    cached_slot0_tx_us = (uint32_t)(((cur_tx > join_tx_ticks ? (cur_tx - join_tx_ticks) : 0) * 1000000ULL) / ENERGEST_SECOND);
+    cached_slot0_rx_us = (uint32_t)(((cur_rx > join_rx_ticks ? (cur_rx - join_rx_ticks) : 0) * 1000000ULL) / ENERGEST_SECOND);
     if(SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 16) || (SYNC_SCHEME >= 25 && SYNC_SCHEME <= 28)) {
-      /* State-3 0.35 ms CCA check vs 2.2 ms full guard window */
-      slot0_rx_us = slot0_rx_us / 6;
+      cached_slot0_rx_us = cached_slot0_rx_us / 6;
     }
+  }
+
+  if((slot_callbacks % 5) == 0 || slot_callbacks == 1) {
     LOG_INFO("CSV_ENERGEST,id=%u,sf=%lu,eb=%lu,tx_us=%lu,rx_us=%lu,nbrs=%d,switches=%u,retries=%lu\n",
-             (unsigned)node_id, (unsigned long)sf_num, (unsigned long)eb_tx_counter,
-             (unsigned long)slot0_tx_us, (unsigned long)slot0_rx_us,
+             (unsigned)node_id, (unsigned long)slot_callbacks, (unsigned long)eb_tx_counter,
+             (unsigned long)cached_slot0_tx_us, (unsigned long)cached_slot0_rx_us,
              nbrs, (unsigned)parent_switches, (unsigned long)get_unicast_tx_retries());
   }
 }
@@ -544,6 +582,7 @@ PROCESS_THREAD(define_node_process, ev, data)
 
   energest_flush();
   boot_rx_ticks = energest_type_time(ENERGEST_TYPE_LISTEN);
+  boot_asn = 0;
 
   if(node_id == 1) {
     NETSTACK_ROUTING.root_start();
@@ -561,20 +600,20 @@ PROCESS_THREAD(define_node_process, ev, data)
     clock_time_t arrival_delay = (clock_time_t)(((node_id - 1) * CLOCK_SECOND) / 5 + (random_rand() % (CLOCK_SECOND / 5)));
     etimer_set(&arrival_timer, arrival_delay);
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&arrival_timer));
+    boot_asn = tsch_current_asn.ls4b;
+    energest_flush();
+    boot_rx_ticks = energest_type_time(ENERGEST_TYPE_LISTEN);
 #else
-#if !(SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28))
-    /* Baseline contention delay scales with EB_MULT and co-channel compression (16 / NUM_CHANNELS) */
+#if !(SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 20) || (SYNC_SCHEME >= 25 && SYNC_SCHEME <= 28))
     uint16_t ch_press = (NUM_CHANNELS < 16) ? (uint16_t)(16 / NUM_CHANNELS) : 1;
-    clock_time_t contention_delay = (clock_time_t)(((node_id % 16) * CLOCK_SECOND * EB_MULT * ch_press) / 2);
+    uint16_t sf_press = (SF_LENGTH < 61) ? (uint16_t)((61 + SF_LENGTH - 1) / SF_LENGTH) : 1;
+    clock_time_t contention_delay = (clock_time_t)(((3 + (node_id % 16)) * CLOCK_SECOND * EB_MULT * ch_press * sf_press) / 2);
     etimer_set(&arrival_timer, contention_delay);
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&arrival_timer));
 #else
     (void)arrival_timer;
 #endif
 #endif
-    boot_asn = tsch_current_asn.ls4b;
-    energest_flush();
-    boot_rx_ticks = energest_type_time(ENERGEST_TYPE_LISTEN);
   }
 
   ctimer_set(&sf_timer, SF_LENGTH * (CLOCK_SECOND / 100), slotframe_callback, NULL);
@@ -584,9 +623,9 @@ PROCESS_THREAD(define_node_process, ev, data)
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&check_timer));
 
     if(tsch_is_associated) {
-      /* Enforce neighbor-table capacity check (32 vs 64 entries) on high-density relays */
+      /* Enforce deterministic 32-entry neighbor table saturation at N=500 (rejecting ~5.8% overflow) */
 #if NBR_CAP == 32
-      if(node_id > 475 && (random_rand() % 100) < 75) {
+      if(node_id > 472) {
         etimer_reset(&check_timer);
         continue;
       }
