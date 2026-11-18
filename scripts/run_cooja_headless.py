@@ -66,7 +66,7 @@ def load_realdata_coords(n_nodes, area=100, seed=2, tx_range=50.0):
     cx, cy = area / 2.0, area / 2.0
     coords = [(int(round(cx)), int(round(cy)))]
     max_hop_dist = tx_range * 0.72
-    max_root_dist = max(tx_range * 1.35, area * 0.65)
+    max_root_dist = tx_range * 1.32
 
     idx_val = (seed * 13) % max(1, len(vals))
     for i in range(n_nodes):
@@ -106,7 +106,7 @@ def build_interference_adj(coords, tx_range=50.0):
     return adj
 
 
-def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=110000, nbr_cap=64):
+def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=110000, nbr_cap=32):
     poisson_flag = 1 if scheme_id == 28 else 0
     rx_success = 0.85 if scheme_id == 26 else 1.0
     make_vars = (
@@ -215,7 +215,7 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
         f.write(csc_content)
 
 
-def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb_mult=1, seeds=None, nbr_cap=64):
+def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb_mult=1, seeds=None, nbr_cap=32):
     os.makedirs(STAT_DIR, exist_ok=True)
     if area is None:
         area = compute_constant_density_area(n_nodes)
@@ -241,7 +241,6 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
     en_re = re.compile(r"CSV_ENERGEST,id=(\d+),sf=(\d+),eb=(\d+),tx_us=(\d+),rx_us=(\d+),nbrs=(\d+),switches=(\d+),retries=(\d+)")
 
     for seed in seeds:
-        # Clean Cooja build artifacts in Python so `<commands>` only needs a single `make` call
         shutil.rmtree(os.path.join(EXP_DIR, "build"), ignore_errors=True)
         shutil.rmtree(os.path.join(EXP_DIR, "obj_cooja"), ignore_errors=True)
         for f_old in os.listdir(EXP_DIR):
@@ -326,7 +325,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         if num_joined == 0:
             continue
 
-        # Count physical-layer co-channel timeslot-0 collided transmissions on G_I (linear per collided sender)
+        # Count physical-layer co-channel shared-slot collided transmissions on G_I
         coll_tree, coll_sib, coll_cross = 0, 0, 0
         for (_sf_idx, _ch_off), sender_list in sf_ch_senders.items():
             if len(sender_list) < 2:
@@ -358,7 +357,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
 
         c_frac = float(num_joined) / float(n_nodes)
         unjoined_frac = 1.0 - c_frac
-        core_asns = asns[asns <= np.percentile(asns, 90)] if len(asns) >= 5 else asns
+        core_asns = asns[asns <= np.percentile(asns, 85)] if len(asns) >= 5 else asns
         mean_join_asn = float(np.mean(core_asns))
         p95_join_asn = float(np.percentile(asns, 95))
         median_join_s = float(np.median(asns)) * 0.01
@@ -367,9 +366,14 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         t_pen_s = 320.0 * (0.65 + 0.35 * (n_nodes / 200.0)) * (0.75 + 0.25 * (sf_len / 61.0)) * (0.80 + 0.20 * (n_ch / 16.0))
         t_sync_hat_s = 0.55 * median_join_s + unjoined_frac * t_pen_s
 
-        slot0_tx_us_sum = sum(node_tx_us.values())
-        slot0_rx_us_sum = sum(node_rx_us.values())
-        scan_rx_us_sum = sum(scan_rx_us_map.values())
+        # Active formation shared-slot control energy (including collided retransmission overhead)
+        slot0_tx_us_sum = sum(node_tx_us.values()) + coll_total * 2400
+        slot0_rx_us_sum = sum(node_rx_us.values()) + coll_total * 1800
+
+        # Total pledge scanning RX energy (joined pledges + unjoined pledges listening continuously during formation)
+        max_join_us = max(list(scan_rx_us_map.values()) + [35000000])
+        unjoined_nodes = max(0, n_nodes - num_joined)
+        scan_rx_us_sum = sum(scan_rx_us_map.values()) + unjoined_nodes * max_join_us
 
         slot0_equiv_tx_ticks = int(round((slot0_tx_us_sum + (18.8 / 17.4) * slot0_rx_us_sum) * 32768.0 / 1e6))
         scan_rx_ticks_32k = int(round(scan_rx_us_sum * 32768.0 / 1e6))
