@@ -65,9 +65,9 @@ def load_realdata_coords(n_nodes, area=100, seed=2, tx_range=50.0):
 
     cx, cy = area / 2.0, area / 2.0
     coords = [(int(round(cx)), int(round(cy)))]
-    max_hop_dist = tx_range * 0.72
-    max_root_dist = tx_range * 0.96
-    span = min(area * 0.90, tx_range * 1.35)
+    max_hop_dist = tx_range * 0.85
+    max_root_dist = max(tx_range * 1.35, area * 0.65)
+    dense_span = min(area * 0.75, tx_range * 1.25)
 
     idx_val = (seed * 13) % max(1, len(vals))
     for i in range(n_nodes):
@@ -76,8 +76,8 @@ def load_realdata_coords(n_nodes, area=100, seed=2, tx_range=50.0):
             u1 = ((vals[idx_val % len(vals)] * 37 + i * 19) % 1000) / 1000.0 - 0.5
             u2 = ((vals[(idx_val + 7) % len(vals)] * 53 + i * 29) % 1000) / 1000.0 - 0.5
             idx_val += 1
-            x = min(area, max(0, int(round(cx + u1 * span))))
-            y = min(area, max(0, int(round(cy + u2 * span))))
+            x = min(area, max(0, int(round(cx + u1 * dense_span))))
+            y = min(area, max(0, int(round(cy + u2 * dense_span))))
             if math.hypot(x - cx, y - cy) > max_root_dist:
                 continue
             for px, py in coords:
@@ -89,7 +89,7 @@ def load_realdata_coords(n_nodes, area=100, seed=2, tx_range=50.0):
                 break
         if not placed:
             angle = rng.uniform(0, 2 * math.pi)
-            r = rng.uniform(5.0, max_root_dist * 0.90)
+            r = rng.uniform(5.0, min(area * 0.40, max_root_dist * 0.80))
             nx = min(area, max(0, int(round(cx + r * math.cos(angle)))))
             ny = min(area, max(0, int(round(cy + r * math.sin(angle)))))
             coords.append((nx, ny))
@@ -124,18 +124,18 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
       <commands>make -j4 node.cooja TARGET=cooja {make_vars}</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiVib</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiMoteID</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiRS232</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiBeeper</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiVib</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiMoteID</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiRS232</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiBeeper</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.IPAddress</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiRadio</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiButton</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiPIR</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiClock</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiLED</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiCFS</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiEEPROM</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiRadio</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiButton</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiPIR</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiClock</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiLED</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiCFS</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiEEPROM</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Mote2MoteRelations</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.MoteAttributes</moteinterface>
     </motetype>"""
@@ -198,7 +198,7 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
             GENERATE_MSG(10000, "CHECK_STAGNATION");
           }}
           if (msg.contains("CSV_JOIN")) {{
-            log.log(msg + "\\n");
+            log.log("T_US=" + time + " " + msg + "\\n");
             joined++;
             last_join_time = time;
           }} else if (msg.contains("CSV_SLOT0_TX") || msg.contains("CSV_ENERGEST") || msg.contains("CSV_PARENT_SWITCH")) {{
@@ -237,7 +237,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
 
     all_join_seconds = []
 
-    join_re = re.compile(r"CSV_JOIN,id=(\d+),asn=(\d+),sync_asn=(\d+),scan_rx_us=(\d+),parent=(\d+),tier=(\d+),nbrs=(\d+)")
+    join_re = re.compile(r"(?:T_US=(\d+)\s+)?CSV_JOIN,id=(\d+),asn=(\d+),sync_asn=(\d+),scan_rx_us=(\d+),parent=(\d+),tier=(\d+),nbrs=(\d+)")
     tx_re = re.compile(r"CSV_SLOT0_TX,id=(\d+),sf=(\d+),ch=(\d+),tier=(\d+),parent=(\d+),sub=(\d+),dsf=(\d+),q=(\d+)")
     en_re = re.compile(r"CSV_ENERGEST,id=(\d+),sf=(\d+),eb=(\d+),tx_us=(\d+),rx_us=(\d+),nbrs=(\d+),switches=(\d+),retries=(\d+)")
 
@@ -254,7 +254,8 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         coords = load_realdata_coords(n_nodes, area, seed=seed)
         adj = build_interference_adj(coords, tx_range=50.0)
         csc_path = os.path.join(EXP_DIR, f"sim_scheme_{scheme_id}_cap{nbr_cap}.csc")
-        generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=seed, nbr_cap=nbr_cap)
+        sim_timeout_ms = max(110000, int(round(110000.0 * (sf_len / 61.0))))
+        generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=seed, timeout_ms=sim_timeout_ms, nbr_cap=nbr_cap)
 
         testlog_path = os.path.join(COOJA_DIR, "COOJA.testlog")
         if os.path.exists(testlog_path):
@@ -278,6 +279,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
             log_lines = f.readlines()
 
         joined_asns = {}
+        join_times_us = {}
         scan_rx_us_map = {}
         node_parent = {1: 0}
         node_tier = {1: 0}
@@ -293,12 +295,14 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         for line in log_lines:
             mj = join_re.search(line)
             if mj:
-                nid = int(mj.group(1))
-                joined_asns[nid] = int(mj.group(2))
-                scan_rx_us_map[nid] = int(mj.group(4))
-                node_parent[nid] = int(mj.group(5))
-                node_tier[nid] = int(mj.group(6))
-                node_nbrs[nid] = int(mj.group(7))
+                nid = int(mj.group(2))
+                if mj.group(1) is not None:
+                    join_times_us[nid] = int(mj.group(1))
+                joined_asns[nid] = int(mj.group(3))
+                scan_rx_us_map[nid] = int(mj.group(5))
+                node_parent[nid] = int(mj.group(6))
+                node_tier[nid] = int(mj.group(7))
+                node_nbrs[nid] = int(mj.group(8))
                 continue
 
             mt = tx_re.search(line)
@@ -360,23 +364,19 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
 
         c_frac = float(num_joined) / float(n_nodes)
         unjoined_frac = 1.0 - c_frac
-        core_asns = asns[asns <= np.percentile(asns, 85)] if len(asns) >= 5 else asns
-        mean_join_asn = float(np.mean(core_asns))
+        mean_join_asn = float(np.mean(asns))
         p95_join_asn = float(np.percentile(asns, 95))
         median_join_s = float(np.median(asns)) * 0.01
         all_join_seconds.extend([float(a) * 0.01 for a in asns])
 
         t_pen_s = 320.0 * (0.65 + 0.35 * (n_nodes / 200.0)) * (0.75 + 0.25 * (sf_len / 61.0)) * (0.80 + 0.20 * (n_ch / 16.0))
         t_sync_hat_s = 0.55 * median_join_s + unjoined_frac * t_pen_s
+        _t_form_s = (max(join_times_us.values()) / 1e6) if join_times_us else 0.0
 
-        # Active formation shared-slot control energy (including collided retransmission overhead)
-        slot0_tx_us_sum = sum(node_tx_us.values()) + coll_total * 2400
-        slot0_rx_us_sum = sum(node_rx_us.values()) + coll_total * 1800
-
-        # Total pledge scanning RX energy (joined pledges + unjoined pledges listening continuously during formation)
-        max_join_us = max(list(scan_rx_us_map.values()) + [35000000])
-        unjoined_nodes = max(0, n_nodes - num_joined)
-        scan_rx_us_sum = sum(scan_rx_us_map.values()) + unjoined_nodes * max_join_us
+        # Raw Energest counters over [0, T_form]
+        slot0_tx_us_sum = sum(node_tx_us.values())
+        slot0_rx_us_sum = sum(node_rx_us.values())
+        scan_rx_us_sum = sum(scan_rx_us_map.values())
 
         slot0_equiv_tx_ticks = int(round((slot0_tx_us_sum + (18.8 / 17.4) * slot0_rx_us_sum) * 32768.0 / 1e6))
         scan_rx_ticks_32k = int(round(scan_rx_us_sum * 32768.0 / 1e6))

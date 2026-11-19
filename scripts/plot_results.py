@@ -249,7 +249,7 @@ def generate_markov_figure6_from_simulation():
     TxFactor, RxFactor = 17.4, 18.8
     area = 100.0
     nodes_list = list(range(25, 500 + 1, 25))
-    sims = 5
+    sims = 30
 
     p_tx_eb = eb_prob / float(i_eb)
     num_r = (2 ** R_T) * ((1.0 - P_T) ** R_T) * max(1.0, S / ((2 ** R_T) * I_dio))
@@ -538,7 +538,7 @@ def generate_latex_table_iv():
         ("p",                  "\\textbf{\\texttt{DEFINE} (Full, 32-Entry Table)}"),
     ]
 
-    def format_row(prefix, label, n_target):
+    def format_row(prefix, label, n_target, is_64_only=False):
         d32 = load_raw_data(prefix)
         if d32 is None:
             return None
@@ -549,16 +549,13 @@ def generate_latex_table_iv():
         if len(m32) == 0:
             return None
 
-        d64 = load_raw_data(f"{prefix}_64nbr")
-        m64 = d64[(d64[:, 0] == n_target)] if d64 is not None else np.empty((0, 12))
-
-        comp32 = (m32[:, 5] / float(n_target)) * 100.0
+        comp_val = (m32[:, 5] / float(n_target)) * 100.0
         m_join_100s = m32[:, 8] * 1e-4
         p95_100s = m32[:, 7] * 1e-4
         coll_10k = m32[:, 9] * 1e-4
         eslot0 = m32[:, 10] * (3.0 * 0.0174 / 32768.0)
-        rmst_ks = ((comp32 / 100.0) * (m_join_100s * 100.0) + (1.0 - comp32 / 100.0) * 3600.0) / 1000.0
-        e3600 = (comp32 / 100.0) * (0.0564 * (m_join_100s * 100.0) + eslot0 / float(n_target)) + (1.0 - comp32 / 100.0) * 203.04
+        rmst_ks = ((comp_val / 100.0) * (m_join_100s * 100.0) + (1.0 - comp_val / 100.0) * 3600.0) / 1000.0
+        e3600 = (comp_val / 100.0) * (0.0564 * (m_join_100s * 100.0) + eslot0 / float(n_target)) + (1.0 - comp_val / 100.0) * 203.04
         eb_rate = float(np.mean(m32[:, 13])) if m32.shape[1] > 13 else 1.0
 
         def ms_str(arr, fmt="%.2f"):
@@ -566,15 +563,22 @@ def generate_latex_table_iv():
             se = float(np.std(arr, ddof=1) / math.sqrt(len(arr))) if len(arr) > 1 else 0.0
             return f"${fmt % m} \\pm {fmt % se}$"
 
-        if len(m64) > 0:
-            comp64 = (m64[:, 5] / float(n_target)) * 100.0
-            c64_str = ms_str(comp64, "%.1f")
+        if is_64_only:
+            c32_str = "---"
+            c64_str = ms_str(comp_val, "%.1f")
         else:
-            c64_str = "---"
+            c32_str = ms_str(comp_val, "%.1f")
+            d64 = load_raw_data(f"{prefix}_64nbr")
+            m64 = d64[(d64[:, 0] == n_target)] if d64 is not None else np.empty((0, 12))
+            if len(m64) > 0:
+                comp64 = (m64[:, 5] / float(n_target)) * 100.0
+                c64_str = ms_str(comp64, "%.1f")
+            else:
+                c64_str = "---"
 
         return (
             f"{label} & ${eb_rate:.2f}$ & {ms_str(rmst_ks)} & {ms_str(m_join_100s)} & "
-            f"{ms_str(p95_100s)} & {ms_str(coll_10k)} & {ms_str(comp32, '%.1f')} & "
+            f"{ms_str(p95_100s)} & {ms_str(coll_10k)} & {c32_str} & "
             f"{c64_str} & {ms_str(eslot0)} & {ms_str(e3600, '%.1f')} \\\\"
         )
 
@@ -586,7 +590,7 @@ def generate_latex_table_iv():
             if line:
                 out_lines.append(line)
         if n_val == 500:
-            line64 = format_row("p_64nbr", "\\textbf{\\texttt{DEFINE} (Full, 64-Entry Table)}", 500)
+            line64 = format_row("p_64nbr", "\\textbf{\\texttt{DEFINE} (Full, 64-Entry Table)}", 500, is_64_only=True)
             if line64:
                 out_lines.append(line64)
 
