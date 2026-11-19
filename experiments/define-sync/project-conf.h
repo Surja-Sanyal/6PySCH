@@ -9,6 +9,19 @@
 /* RFC 8180 Section 6.1: MinHopRankIncrease = 256 */
 #define RPL_CONF_MIN_HOPRANKINC 256
 
+/* Standard RFC 6206 / RFC 6550 / RFC 6775 settings for dense single-cell 6TiSCH-MC
+   (applied identically across DEFINE and all baselines) */
+#define RPL_CONF_DIO_INTERVAL_MIN 13                /* 2^13 ms = 8.192 s */
+#define RPL_CONF_DIO_INTERVAL_DOUBLINGS 8
+#define RPL_CONF_DIO_REDUNDANCY 3                   /* RFC 6206 Trickle suppression (k=3) */
+#define RPL_CONF_DIS_INTERVAL (120 * CLOCK_SECOND)  /* Prevent simultaneous DIS storms on (0,0) */
+#define RPL_CONF_WITH_DAO_ACK 0                     /* Upward DODAG join matching Fig. 3 model */
+#define RPL_CONF_PROBING_INTERVAL (180 * CLOCK_SECOND)
+#define UIP_CONF_ND6_SEND_NS 0
+#define UIP_CONF_ND6_SEND_NA 0
+#define TSCH_CONF_MAC_MIN_BE 2
+#define TSCH_CONF_MAC_MAX_BE 7
+
 #ifndef SYNC_SCHEME
 #define SYNC_SCHEME 1
 #endif

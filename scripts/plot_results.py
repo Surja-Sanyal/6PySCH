@@ -390,16 +390,17 @@ def load_raw_data(prefix):
     )
     best_data = None
     for path in candidates:
-        rows_19 = []
-        rows_12 = []
+        rows_21, rows_19, rows_12 = [], [], []
         with open(path, "r") as f:
             for line in f:
                 parts = [float(p.strip()) for p in line.strip().split(",") if p.strip()]
-                if len(parts) >= 19:
+                if len(parts) >= 21:
+                    rows_21.append(parts[:21])
+                elif len(parts) >= 19:
                     rows_19.append(parts[:19])
                 elif len(parts) >= 12:
                     rows_12.append(parts[:12])
-        rows = rows_19 if rows_19 else rows_12
+        rows = rows_21 if rows_21 else (rows_19 if rows_19 else rows_12)
         if not rows:
             continue
         data = np.array(rows, dtype=float)
@@ -464,8 +465,12 @@ def plot_sweep(x_col, fixed_filters, col_idx, xlabel, ylabel, png_name, pdf_name
             y = mat[:, 10] * (3.0 * 0.0174 / 32768.0) * y_scale
             y_se = se_mat[:, 10] * (3.0 * 0.0174 / 32768.0) * y_scale
         elif is_duty:
-            y = np.minimum(100.0, ((mat[:, 10] * 0.2 + mat[:, 11] * 0.05) / (mat[:, 0] * 360000.0)) * 100.0)
-            y_se = ((se_mat[:, 10] * 0.2 + se_mat[:, 11] * 0.05) / (mat[:, 0] * 360000.0)) * 100.0
+            t_form = mat[:, 20] if mat.shape[1] > 20 else np.maximum(1.0, mat[:, 6])
+            active_s = (mat[:, 10] + mat[:, 11]) / 32768.0
+            active_se_s = (se_mat[:, 10] + se_mat[:, 11]) / 32768.0
+            denom = np.maximum(1.0, mat[:, 0] * np.maximum(1.0, t_form))
+            y = np.minimum(100.0, (active_s / denom) * 100.0)
+            y_se = (active_se_s / denom) * 100.0
         else:
             y = mat[:, col_idx] * y_scale
             y_se = se_mat[:, col_idx] * y_scale
@@ -619,7 +624,7 @@ if __name__ == "__main__":
 
     tx_j_scale = 3.0 * 0.0174 / 32768.0
     rx_j_scale = (3.0 * 0.0188 / 32768.0) * 1e-2
-    plot_sweep(0, f_nodes, 10, dens_lbl, r"Tx radio energy (J)", "Fig11a_tx_energy.png", "densitywise_transmission_energy.pdf", x_scale=0.01, y_scale=tx_j_scale, mode="densitywise")
+    plot_sweep(0, f_nodes, 19, dens_lbl, r"Tx radio energy (J)", "Fig11a_tx_energy.png", "densitywise_transmission_energy.pdf", x_scale=0.01, y_scale=tx_j_scale, mode="densitywise")
     plot_sweep(0, f_nodes, 11, dens_lbl, r"Rx scan energy ($\times 10^2$ J)", "Fig11b_rx_energy.png", "densitywise_reception_energy.pdf", x_scale=0.01, y_scale=rx_j_scale, mode="densitywise")
     plot_sweep(0, f_nodes, 10, dens_lbl, r"Total radio energy (J)", "Fig11c_total_energy.png", "densitywise_total_energy.pdf", x_scale=0.01, y_scale=1.0, is_total_energy=True, mode="densitywise")
     plot_sweep(0, f_nodes, 10, dens_lbl, r"Radio duty cycle ($\%$)", "Fig11d_duty_cycle.png", "densitywise_duty_cycle.pdf", x_scale=0.01, is_duty=True, mode="densitywise")

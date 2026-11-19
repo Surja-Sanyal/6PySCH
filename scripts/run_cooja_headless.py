@@ -94,7 +94,7 @@ def build_interference_adj(coords, tx_range=50.0):
     return adj
 
 
-def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=240000, nbr_cap=32):
+def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=600000, nbr_cap=32):
     poisson_flag = 1 if scheme_id == 28 else 0
     rx_success = 0.85 if scheme_id == 26 else 1.0
     make_vars = (
@@ -178,7 +178,7 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
         while (joined &lt; target) {{
           YIELD();
           if (msg.equals("CHECK_STAGNATION")) {{
-            if (joined &gt; 0 &amp;&amp; (time - last_join_time) &gt; 45000000 &amp;&amp; time &gt; 60000000) {{
+            if (joined &gt; 0 &amp;&amp; (time - last_join_time) &gt; 90000000 &amp;&amp; time &gt; 120000000) {{
               log.log("STAGNATION_STOP at time=" + time + " joined=" + joined + "\\n");
               log.testOK();
             }}
@@ -188,7 +188,7 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
             log.log("T_US=" + time + " " + msg + "\\n");
             joined++;
             last_join_time = time;
-          }} else if (msg.contains("CSV_SLOT0_TX") || msg.contains("CSV_ENERGEST") || msg.contains("CSV_PARENT_SWITCH")) {{
+          }} else if (msg.contains("CSV_SLOT0_TX") || msg.contains("CSV_ENERGEST") || msg.contains("CSV_SCAN_ENERGEST") || msg.contains("CSV_PARENT_SWITCH")) {{
             log.log(msg + "\\n");
           }}
         }}
@@ -227,6 +227,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
     join_re = re.compile(r"(?:T_US=(\d+)\s+)?CSV_JOIN,id=(\d+),asn=(\d+),sync_asn=(\d+),scan_rx_us=(\d+),parent=(\d+),tier=(\d+),nbrs=(\d+)")
     tx_re = re.compile(r"CSV_SLOT0_TX,id=(\d+),sf=(\d+),ch=(\d+),tier=(\d+),parent=(\d+),sub=(\d+),dsf=(\d+),q=(\d+)")
     en_re = re.compile(r"CSV_ENERGEST,id=(\d+),sf=(\d+),eb=(\d+),tx_us=(\d+),rx_us=(\d+),nbrs=(\d+),switches=(\d+),retries=(\d+)")
+    scan_re = re.compile(r"CSV_SCAN_ENERGEST,id=(\d+),scan_rx_us=(\d+)")
 
     for seed in seeds:
         shutil.rmtree(os.path.join(EXP_DIR, "build"), ignore_errors=True)
@@ -241,7 +242,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         coords = load_realdata_coords(n_nodes, area, seed=seed)
         adj = build_interference_adj(coords, tx_range=50.0)
         csc_path = os.path.join(EXP_DIR, f"sim_scheme_{scheme_id}_cap{nbr_cap}.csc")
-        sim_timeout_ms = max(240000, int(round(240000.0 * (sf_len / 61.0))))
+        sim_timeout_ms = max(600000, int(round(600000.0 * (sf_len / 61.0))))
         generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=seed, timeout_ms=sim_timeout_ms, nbr_cap=nbr_cap)
 
         testlog_path = os.path.join(COOJA_DIR, "COOJA.testlog")
@@ -292,6 +293,13 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
                 node_parent[nid] = int(mj.group(6))
                 node_tier[nid] = int(mj.group(7))
                 node_nbrs[nid] = int(mj.group(8))
+                continue
+
+            ms = scan_re.search(line)
+            if ms:
+                nid = int(ms.group(1))
+                if nid not in joined_asns:
+                    scan_rx_us_map[nid] = max(scan_rx_us_map.get(nid, 0), int(ms.group(2)))
                 continue
 
             mt = tx_re.search(line)
@@ -363,14 +371,15 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
 
         t_pen_s = 320.0 * (0.65 + 0.35 * (n_nodes / 200.0)) * (0.75 + 0.25 * (sf_len / 61.0)) * (0.80 + 0.20 * (n_ch / 16.0))
         t_sync_hat_s = 0.55 * median_join_s + unjoined_frac * t_pen_s
-        _t_form_s = (max(join_times_us.values()) / 1e6) if join_times_us else 0.0
+        t_form_s = (max(join_times_us.values()) / 1e6) if join_times_us else (sim_timeout_ms / 1000.0)
 
-        # Raw Energest counters over [0, T_form]
+        # Raw Energest counters over [0, T_form] (joined + real scanning pledges)
         slot0_tx_us_sum = sum(node_tx_us.values())
         slot0_rx_us_sum = sum(node_rx_us.values())
         scan_rx_us_sum = sum(scan_rx_us_map.values())
 
         slot0_equiv_tx_ticks = int(round((slot0_tx_us_sum + (18.8 / 17.4) * slot0_rx_us_sum) * 32768.0 / 1e6))
+        slot0_tx_only_ticks = int(round(slot0_tx_us_sum * 32768.0 / 1e6))
         scan_rx_ticks_32k = int(round(scan_rx_us_sum * 32768.0 / 1e6))
 
         mean_switches = float(np.mean(list(node_switches.values()))) if node_switches else 0.0
@@ -384,7 +393,8 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
                 num_joined, round(t_sync_hat_s, 4), round(p95_join_asn, 2), round(mean_join_asn, 2),
                 coll_total, slot0_equiv_tx_ticks, scan_rx_ticks_32k,
                 seed, round(eb_rate, 4), coll_tree, coll_sib, coll_cross,
-                round(mean_switches, 4), round(mean_retries, 4)
+                round(mean_switches, 4), round(mean_retries, 4),
+                slot0_tx_only_ticks, round(t_form_s, 4)
             ]
             fp.write(",".join(map(str, row)) + ",\n")
 
