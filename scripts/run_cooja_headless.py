@@ -124,10 +124,9 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
       <commands>make -j4 node.cooja TARGET=cooja {make_vars}</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>
-      <moteinterface>org.contikios.cooja.interfaces.ContikiVib</moteinterface>
-      <moteinterface>org.contikios.cooja.interfaces.ContikiMoteID</moteinterface>
-      <moteinterface>org.contikios.cooja.interfaces.ContikiRS232</moteinterface>
-      <moteinterface>org.contikios.cooja.interfaces.ContikiBeeper</moteinterface>
+      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiMoteID</moteinterface>
+      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiRS232</moteinterface>
+      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiBeeper</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.IPAddress</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.ContikiRadio</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.ContikiButton</moteinterface>
