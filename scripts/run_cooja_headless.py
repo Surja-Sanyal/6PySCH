@@ -57,29 +57,15 @@ def compute_constant_density_area(n_nodes, base_nodes=50, base_area=55):
 
 def load_realdata_coords(n_nodes, area=100, seed=2, tx_range=50.0):
     rng = random.Random(seed)
-    if os.path.exists(REALDATA_PATH):
-        raw = np.loadtxt(REALDATA_PATH, dtype="object", delimiter=",")
-        vals = [int(float(v)) for v in (raw if raw.ndim == 1 else raw[:, 0])]
-    else:
-        vals = list(range(1, 10000))
-
     cx, cy = area / 2.0, area / 2.0
     coords = [(int(round(cx)), int(round(cy)))]
-    max_hop_dist = tx_range * 0.85
-    max_root_dist = max(tx_range * 1.35, area * 0.65)
-    dense_span = min(area * 0.75, tx_range * 1.25)
+    max_hop_dist = tx_range * 0.72  # 36 m within 50 m UDGM range (Section V-B)
 
-    idx_val = (seed * 13) % max(1, len(vals))
-    for i in range(n_nodes):
+    for _ in range(n_nodes):
         placed = False
-        for _attempt in range(250):
-            u1 = ((vals[idx_val % len(vals)] * 37 + i * 19) % 1000) / 1000.0 - 0.5
-            u2 = ((vals[(idx_val + 7) % len(vals)] * 53 + i * 29) % 1000) / 1000.0 - 0.5
-            idx_val += 1
-            x = min(area, max(0, int(round(cx + u1 * dense_span))))
-            y = min(area, max(0, int(round(cy + u2 * dense_span))))
-            if math.hypot(x - cx, y - cy) > max_root_dist:
-                continue
+        for _attempt in range(500):
+            x = int(round(rng.uniform(0.0, float(area))))
+            y = int(round(rng.uniform(0.0, float(area))))
             for px, py in coords:
                 if math.hypot(x - px, y - py) <= max_hop_dist:
                     coords.append((x, y))
@@ -88,10 +74,11 @@ def load_realdata_coords(n_nodes, area=100, seed=2, tx_range=50.0):
             if placed:
                 break
         if not placed:
+            px, py = rng.choice(coords)
             angle = rng.uniform(0, 2 * math.pi)
-            r = rng.uniform(5.0, min(area * 0.40, max_root_dist * 0.80))
-            nx = min(area, max(0, int(round(cx + r * math.cos(angle)))))
-            ny = min(area, max(0, int(round(cy + r * math.sin(angle)))))
+            r = rng.uniform(5.0, max_hop_dist)
+            nx = min(area, max(0, int(round(px + r * math.cos(angle)))))
+            ny = min(area, max(0, int(round(py + r * math.sin(angle)))))
             coords.append((nx, ny))
     return coords
 

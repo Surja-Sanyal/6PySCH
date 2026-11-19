@@ -24,6 +24,7 @@ static clock_time_t last_eb_period = 0;
 static uint32_t eb_tx_counter = 0;
 static uint32_t slot_callbacks = 0;
 static uint32_t boot_asn = 0;
+static uint32_t sync_asn = 0;
 
 /* Real Energest baseline snapshots */
 static uint64_t boot_rx_ticks = 0;
@@ -42,7 +43,7 @@ static uint32_t last_sync_asn = 0;
 static uint8_t cached_h_u = 0;
 
 /* Forward declarations */
-static void update_advertising_link(uint16_t ch_offset);
+static void set_slot0_link(uint16_t ch_offset, uint8_t link_opts, enum link_type ltype);
 static void safe_set_eb_period(clock_time_t period);
 
 /* 16-entry uint8 lookup table for exp(-gamma) scaled by 255 (P_min = 0.15 -> 38/255) */
@@ -141,43 +142,36 @@ define_on_new_time_source(const struct tsch_neighbor *old, const struct tsch_nei
   }
 }
 
+/* Single-radio timeslot-0 link arbiter (no extra horizontal slots for any scheme) */
 static void
-update_advertising_link(uint16_t ch_offset)
+set_slot0_link(uint16_t ch_offset, uint8_t link_opts, enum link_type ltype)
 {
   sf_min = tsch_schedule_get_slotframe_by_handle(0);
-  if(sf_min != NULL && ch_offset != last_ch_offset && !tsch_is_locked()) {
-    uint16_t adv_slot = (uint16_t)(1 + (node_id % 2));
-    struct tsch_link *existing = tsch_schedule_get_link_by_timeslot(sf_min, adv_slot);
-    if(existing != NULL) {
-      existing->channel_offset = ch_offset;
-      last_ch_offset = ch_offset;
-    } else if(ch_offset == 0) {
-      last_ch_offset = 0;
-    } else if(tsch_schedule_add_link(sf_min,
-         LINK_OPTION_TX | LINK_OPTION_SHARED,
-         LINK_TYPE_ADVERTISING, &tsch_broadcast_address, adv_slot, ch_offset, 1) != NULL) {
-      last_ch_offset = ch_offset;
-    }
-
-#if SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 20) || (SYNC_SCHEME >= 25 && SYNC_SCHEME <= 28)
-    uint16_t adv_slot2 = (uint16_t)(3 + (node_id % 2));
-    uint16_t ch_off2 = (uint16_t)((ch_offset + 1) % NUM_CHANNELS);
-    struct tsch_link *ex2 = tsch_schedule_get_link_by_timeslot(sf_min, adv_slot2);
-    if(ex2 != NULL) {
-      ex2->channel_offset = ch_off2;
+  if(sf_min != NULL && !tsch_is_locked()) {
+    struct tsch_link *l = tsch_schedule_get_link_by_timeslot(sf_min, 0);
+    if(l != NULL) {
+      if(ch_offset != last_ch_offset || link_opts != l->link_options || ltype != l->link_type) {
+        l->channel_offset = (uint8_t)ch_offset;
+        l->link_options = link_opts;
+        l->link_type = ltype;
+        last_ch_offset = ch_offset;
+      }
     } else {
-      tsch_schedule_add_link(sf_min,
-        LINK_OPTION_TX | LINK_OPTION_SHARED,
-        LINK_TYPE_ADVERTISING, &tsch_broadcast_address, adv_slot2, ch_off2, 1);
+      tsch_schedule_add_link(sf_min, link_opts, ltype,
+                             &tsch_broadcast_address, 0, (uint8_t)ch_offset, 1);
+      last_ch_offset = ch_offset;
     }
-#endif
   }
 }
 
 static void
 safe_set_eb_period(clock_time_t period)
 {
-  clock_time_t min_period = (CLOCK_SECOND / 25 > 2) ? (CLOCK_SECOND / 25) : 2;
+  /* Floor at 1.5 slotframes so Contiki-NG's EB queue never starves broadcast RPL DIOs */
+  clock_time_t min_period = (clock_time_t)((SF_LENGTH * (CLOCK_SECOND / 100) * 3) / 2);
+  if(min_period < 4) {
+    min_period = 4;
+  }
   if(period < min_period) {
     period = min_period;
   }
@@ -191,7 +185,7 @@ safe_set_eb_period(clock_time_t period)
 static uint8_t
 compute_adapt_q_u8(uint32_t asn_now, int nbrs, uint8_t use_age, uint8_t use_dens, uint8_t use_phase)
 {
-  uint32_t phase_slots = use_phase ? ((uint32_t)phi_u * (uint32_t)(SF_LENGTH / 4)) : 0;
+  uint32_t phase_slots = use_phase ? ((uint32_t)phi_u * (uint32_t)SF_LENGTH) : 0;
   if(node_id != 1 && asn_now < join_asn + phase_slots) {
     return 0;
   }
@@ -246,9 +240,25 @@ apply_scheme_schedule(void)
     return;
   }
 
-  slot_callbacks++;
   uint32_t asn_now = tsch_current_asn.ls4b;
   uint32_t sf_num = (uint32_t)(asn_now / SF_LENGTH);
+
+  /* Algorithm 1: Between TSCH sync and RPL DODAG join, receive DIOs on (0,0) and
+     (for DEFINE/grafted schemes) sweep candidate EB offsets during W_eb = 2*C*S */
+  if(!NETSTACK_ROUTING.node_has_joined() && node_id != 1) {
+    uint32_t w_eb = (uint32_t)(2 * NUM_CHANNELS * SF_LENGTH);
+    uint8_t in_sweep_win = (sync_asn > 0 && asn_now >= sync_asn && (asn_now - sync_asn) < w_eb);
+    if(in_sweep_win && (sf_num & 1) == 1 && (SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28))) {
+      uint8_t step = (uint8_t)((sf_num / 2) % NUM_CHANNELS);
+      uint8_t cand_off = (SYNC_SCHEME == 27) ? (uint8_t)((NUM_CHANNELS - 1) - step) : step;
+      set_slot0_link(cand_off, LINK_OPTION_RX | LINK_OPTION_SHARED | LINK_OPTION_TIME_KEEPING, LINK_TYPE_NORMAL);
+    } else {
+      set_slot0_link(0, LINK_OPTION_TX | LINK_OPTION_RX | LINK_OPTION_SHARED | LINK_OPTION_TIME_KEEPING, LINK_TYPE_NORMAL);
+    }
+    return;
+  }
+
+  slot_callbacks++;
   int nbrs = get_active_neighbor_count();
   clock_time_t one_sf_dur = (clock_time_t)(SF_LENGTH * (CLOCK_SECOND / 100));
   if(one_sf_dur < 4) {
@@ -432,6 +442,8 @@ apply_scheme_schedule(void)
     if(sync_age_slots >= 3000UL) {
       if(sync_wait_cnt < 20) {
         sync_wait_cnt++;
+        set_slot0_link(parent_ch_offset, LINK_OPTION_RX | LINK_OPTION_TIME_KEEPING, LINK_TYPE_NORMAL);
+        return;
       } else {
         parent_ch_offset = (uint8_t)((parent_ch_offset + 1) % NUM_CHANNELS);
         sync_wait_cnt = 0;
@@ -440,21 +452,28 @@ apply_scheme_schedule(void)
     }
   }
 
-  update_advertising_link(ch_offset_u);
-
   uint32_t delta_sf = (asn_now > join_asn) ? ((asn_now - join_asn) / SF_LENGTH) : 0;
   clock_time_t sched_base = (SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28)) ? one_sf_dur : base_sf_dur;
   clock_time_t target_period = (clock_time_t)((sched_base * 255UL) / (tx_prob_u8 > 0 ? tx_prob_u8 : 38));
   safe_set_eb_period(target_period);
 
+  /* Reserve at least 20% of slotframes for State 3 on (0,0) so RPL DIOs are never starved */
+  uint8_t eb_gate = (tx_prob_u8 > 204) ? 204 : tx_prob_u8;
   uint8_t r_draw = (uint8_t)(random_rand() & 0xFF);
-  if(r_draw <= tx_prob_u8) {
+  if(r_draw < eb_gate) {
+    /* State 2: Own EB Broadcast TX on ch_offset_u (LINK_TYPE_ADVERTISING_ONLY on non-zero offsets
+       keeps RPL DIOs queued until State 3 on base cell (0,0)) */
+    enum link_type st2_type = (ch_offset_u == 0) ? LINK_TYPE_ADVERTISING : LINK_TYPE_ADVERTISING_ONLY;
+    set_slot0_link(ch_offset_u, LINK_OPTION_TX | LINK_OPTION_RX | LINK_OPTION_SHARED | LINK_OPTION_TIME_KEEPING, st2_type);
     eb_tx_counter += subslots;
     uint16_t pid = get_preferred_parent_id();
     LOG_INFO("CSV_SLOT0_TX,id=%u,sf=%lu,ch=%u,tier=%u,parent=%u,sub=%u,dsf=%lu,q=%u\n",
              (unsigned)node_id, (unsigned long)sf_num, (unsigned)ch_offset_u,
              (unsigned)cached_h_u, (unsigned)pid, (unsigned)subslots,
              (unsigned long)delta_sf, (unsigned)tx_prob_u8);
+  } else {
+    /* State 3: Shared Control RX/TX on Base Cell (0,0) for RPL DIO, DIS, and unicast DAO/ACK */
+    set_slot0_link(0, LINK_OPTION_TX | LINK_OPTION_RX | LINK_OPTION_SHARED | LINK_OPTION_TIME_KEEPING, LINK_TYPE_NORMAL);
   }
 
   if((slot_callbacks % 10) == 0 || slot_callbacks == 1) {
@@ -494,6 +513,7 @@ PROCESS_THREAD(define_node_process, ev, data)
     NETSTACK_ROUTING.root_start();
     tsch_set_coordinator(1);
     join_asn = 0;
+    sync_asn = 0;
     boot_asn = 0;
     last_sync_asn = 0;
     phi_u = 0;
@@ -519,6 +539,13 @@ PROCESS_THREAD(define_node_process, ev, data)
 
   while(!join_logged) {
     PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&check_timer));
+
+    if(tsch_is_associated && sync_asn == 0) {
+      sync_asn = tsch_current_asn.ls4b;
+      if(sync_asn == 0) {
+        sync_asn = 1;
+      }
+    }
 
     if(tsch_is_associated && NETSTACK_ROUTING.node_has_joined()) {
       last_ch_offset = 0xFFFF;
