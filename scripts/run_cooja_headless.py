@@ -107,7 +107,7 @@ def build_interference_adj(coords, tx_range=50.0):
     return adj
 
 
-def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=110000, nbr_cap=32):
+def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=240000, nbr_cap=32):
     poisson_flag = 1 if scheme_id == 28 else 0
     rx_success = 0.85 if scheme_id == 26 else 1.0
     make_vars = (
@@ -124,16 +124,16 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
       <commands>make -j4 node.cooja TARGET=cooja {make_vars}</commands>
       <moteinterface>org.contikios.cooja.interfaces.Position</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Battery</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiMoteID</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiRS232</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiBeeper</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiMoteID</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiRS232</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiBeeper</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.IPAddress</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiButton</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiPIR</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiClock</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiLED</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiCFS</moteinterface>
-      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiEEPROM</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiButton</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiPIR</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiClock</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiLED</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiCFS</moteinterface>
+      <moteinterface>org.contikios.cooja.interfaces.ContikiEEPROM</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Mote2MoteRelations</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.MoteAttributes</moteinterface>
     </motetype>"""
@@ -189,7 +189,7 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
         while (joined &lt; target) {{
           YIELD();
           if (msg.equals("CHECK_STAGNATION")) {{
-            if (joined &gt; 0 &amp;&amp; (time - last_join_time) &gt; 25000000 &amp;&amp; time &gt; 35000000) {{
+            if (joined &gt; 0 &amp;&amp; (time - last_join_time) &gt; 45000000 &amp;&amp; time &gt; 60000000) {{
               log.log("STAGNATION_STOP at time=" + time + " joined=" + joined + "\\n");
               log.testOK();
             }}
@@ -252,7 +252,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         coords = load_realdata_coords(n_nodes, area, seed=seed)
         adj = build_interference_adj(coords, tx_range=50.0)
         csc_path = os.path.join(EXP_DIR, f"sim_scheme_{scheme_id}_cap{nbr_cap}.csc")
-        sim_timeout_ms = max(110000, int(round(110000.0 * (sf_len / 61.0))))
+        sim_timeout_ms = max(240000, int(round(240000.0 * (sf_len / 61.0))))
         generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=seed, timeout_ms=sim_timeout_ms, nbr_cap=nbr_cap)
 
         testlog_path = os.path.join(COOJA_DIR, "COOJA.testlog")
@@ -289,6 +289,8 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         node_switches = {}
         node_retries = {}
         sf_ch_senders = {}
+        tx_log_count = 0
+        en_log_count = 0
 
         for line in log_lines:
             mj = join_re.search(line)
@@ -305,6 +307,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
 
             mt = tx_re.search(line)
             if mt:
+                tx_log_count += 1
                 nid = int(mt.group(1))
                 sf_idx = int(mt.group(2))
                 ch_off = int(mt.group(3))
@@ -316,6 +319,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
 
             me = en_re.search(line)
             if me:
+                en_log_count += 1
                 nid = int(me.group(1))
                 node_active_sfs[nid] = max(node_active_sfs.get(nid, 0), int(me.group(2)))
                 node_eb_cnt[nid] = max(node_eb_cnt.get(nid, 0), int(me.group(3)))
@@ -328,6 +332,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         asns = np.sort(np.array(list(joined_asns.values()), dtype=float))
         num_joined = len(asns)
         if num_joined == 0:
+            print(f"WARNING: 0 nodes completed join in seed={seed} (tx_logs={tx_log_count}, energest_logs={en_log_count})")
             continue
 
         # Count physical-layer co-channel shared-slot collided transmissions on G_I

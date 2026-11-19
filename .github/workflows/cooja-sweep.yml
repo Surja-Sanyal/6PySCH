@@ -147,6 +147,7 @@ jobs:
 
           os.makedirs("Statistics", exist_ok=True)
           merged = {}
+          downloaded_files = glob.glob("tmp_artifacts/**/*", recursive=True)
 
           for filepath in sorted(glob.glob("tmp_artifacts/**/*_cooja_stats_.txt", recursive=True)):
               fname = os.path.basename(filepath)
@@ -161,7 +162,7 @@ jobs:
                               merged.setdefault(fname, {})[key] = line
 
           if not merged:
-              print("FATAL ERROR: No new 19-column Cooja statistics files were produced by the simulation jobs!")
+              print(f"FATAL ERROR: No valid 19-column Cooja rows with num_joined > 0 found (downloaded entries: {len(downloaded_files)})!")
               sys.exit(1)
 
           for old_f in glob.glob("Statistics/*_stats_.txt"):
