@@ -128,13 +128,12 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
       <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiRS232</moteinterface>
       <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiBeeper</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.IPAddress</moteinterface>
-      <moteinterface>org.contikios.cooja.interfaces.ContikiRadio</moteinterface>
-      <moteinterface>org.contikios.cooja.interfaces.ContikiButton</moteinterface>
-      <moteinterface>org.contikios.cooja.interfaces.ContikiPIR</moteinterface>
-      <moteinterface>org.contikios.cooja.interfaces.ContikiClock</moteinterface>
-      <moteinterface>org.contikios.cooja.interfaces.ContikiLED</moteinterface>
-      <moteinterface>org.contikios.cooja.interfaces.ContikiCFS</moteinterface>
-      <moteinterface>org.contikios.cooja.interfaces.ContikiEEPROM</moteinterface>
+      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiButton</moteinterface>
+      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiPIR</moteinterface>
+      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiClock</moteinterface>
+      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiLED</moteinterface>
+      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiCFS</moteinterface>
+      <moteinterface>org.contikios.cooja.contikimote.interfaces.ContikiEEPROM</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.Mote2MoteRelations</moteinterface>
       <moteinterface>org.contikios.cooja.interfaces.MoteAttributes</moteinterface>
     </motetype>"""
