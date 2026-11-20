@@ -9,23 +9,26 @@
 /* RFC 8180 Section 6.1: MinHopRankIncrease = 256 */
 #define RPL_CONF_MIN_HOPRANKINC 256
 
-/* Standard RFC 6206 / RFC 6550 / RFC 6775 / Table III settings
+/* Standard RFC 6206 / RFC 6550 / RFC 6775 dense-network settings
    (applied identically across DEFINE and all 27 comparison/ablation schemes) */
-#define RPL_CONF_DIO_INTERVAL_MIN 13                /* 2^13 ms = 8.192 s */
+#define RPL_CONF_DIO_INTERVAL_MIN 11                /* 2^11 ms = 2.048 s */
 #define RPL_CONF_DIO_INTERVAL_DOUBLINGS 8
 #define RPL_CONF_DIO_REDUNDANCY 3                   /* RFC 6206 Trickle suppression (k=3) */
-#define RPL_CONF_DIS_INTERVAL (120 * CLOCK_SECOND)  /* Prevent simultaneous DIS storms */
-#define RPL_CONF_DAO_DELAY (30 * CLOCK_SECOND)      /* Stagger upward DAOs on single cell (0,0) */
+#define RPL_CONF_DIS_START_DELAY 3600               /* Passive DIO reception; prevent 450-node DIS storm */
+#define RPL_CONF_DIS_INTERVAL (3600 * CLOCK_SECOND)
+#define RPL_CONF_DAO_DELAY (120 * CLOCK_SECOND)     /* Stagger upward DAOs on single cell (0,0) */
 #define RPL_CONF_WITH_DAO_ACK 0
-#define RPL_CONF_PROBING_INTERVAL (180 * CLOCK_SECOND)
+#define RPL_CONF_PROBING_INTERVAL (300 * CLOCK_SECOND)
 #define UIP_CONF_ND6_SEND_NS 0
 #define UIP_CONF_ND6_SEND_NA 0
 
-/* Table III / Section IV-A timekeeping guard (T_sync_max = 30 s) & CSMA backoff */
-#define TSCH_CONF_KEEPALIVE_TIMEOUT (30 * CLOCK_SECOND)
+/* Passive EB/DIO timekeeping (disables unicast keep-alive TX storms on cell (0,0));
+   State-1 RX keep-alive in node.c still monitors real tsch_last_sync_time */
+#define TSCH_CONF_KEEPALIVE_TIMEOUT 0
 #define TSCH_CONF_MAX_KEEPALIVE_TIMEOUT (60 * CLOCK_SECOND)
 #define TSCH_CONF_MAC_MIN_BE 2
 #define TSCH_CONF_MAC_MAX_BE 7
+#define TSCH_CONF_MAC_MAX_FRAME_RETRIES 3
 
 /* Initialize standard minimal schedule (slotframe 0, length SF_LENGTH, cell (0,0))
    on every associating pledge regardless of which vertical channel offset carried the EB */

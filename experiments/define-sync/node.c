@@ -12,6 +12,8 @@
 #include "sys/log.h"
 #include "lib/random.h"
 #include "node.h"
+#include "net/routing/rpl-lite/rpl.h"
+#include "net/routing/rpl-lite/rpl-neighbor.h"
 
 #define LOG_MODULE "DEFINE-NODE"
 #define LOG_LEVEL LOG_LEVEL_INFO
@@ -104,7 +106,9 @@ get_preferred_parent_tier(void)
 static int
 get_active_neighbor_count(void)
 {
-  return (int)uip_ds6_nbr_num();
+  int rpl_n = rpl_neighbor_count();
+  int ds6_n = (int)uip_ds6_nbr_num();
+  return (rpl_n > ds6_n) ? rpl_n : ds6_n;
 }
 
 static uint32_t
@@ -175,9 +179,7 @@ compute_adapt_q_u8(uint32_t asn_now, int nbrs, uint8_t use_age, uint8_t use_dens
   uint16_t sqrt_scaled = isqrt_u16((uint16_t)(eff_n * 100));
   uint32_t gamma_q2 = (delta_asn * sqrt_scaled * 4UL) / ((uint32_t)NUM_CHANNELS * (uint32_t)SF_LENGTH * 10UL);
   uint8_t lut_idx = (gamma_q2 > 15) ? 15 : (uint8_t)gamma_q2;
-  uint8_t q_raw = (exp_lut[lut_idx] > 38) ? exp_lut[lut_idx] : 38;
-  uint8_t q_scaled = (uint8_t)(q_raw / EB_MULT);
-  return (q_scaled > 8) ? q_scaled : 8;
+  return (exp_lut[lut_idx] > 38) ? exp_lut[lut_idx] : 38;
 }
 
 static void
