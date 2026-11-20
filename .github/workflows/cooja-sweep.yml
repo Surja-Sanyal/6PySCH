@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       num_seeds:
-        description: 'Number of paired random seeds per point (5 completes within 1 hr; 30 for full campaign)'
+        description: 'Number of paired random seeds per point (5 for fast check; 30 for full overnight campaign)'
         required: false
-        default: '5'
+        default: '30'
 
 permissions:
   contents: write
@@ -15,15 +15,16 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  simulate-sweeps:
+  simulate-sweeps-a:
     runs-on: ubuntu-latest
     container: contiker/contiki-ng:latest
     timeout-minutes: 360
     strategy:
       fail-fast: false
       matrix:
-        scheme: [1, 2, 3, 4, 5, 6, 7, 8]
+        scheme: [1, 2, 3, 4]
         group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+        shard: [1, 2, 3]
 
     steps:
       - name: Checkout repository
@@ -46,7 +47,7 @@ jobs:
           restore-keys: |
             cooja-gradle-
 
-      - name: Run Cooja Headless Simulation Batch
+      - name: Run Cooja Headless Simulation Batch (Shard ${{ matrix.shard }}/3)
         run: |
           rm -rf Statistics/*_stats_.txt Statistics/*.csv
           if [ ! -f "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja/build.gradle" ] && [ -f "/home/user/contiki-ng/tools/cooja/build.gradle" ]; then
@@ -57,16 +58,70 @@ jobs:
           rm -rf /home/user/contiki-ng
           ln -sfn "$GITHUB_WORKSPACE/contiki-ng-define" /home/user/contiki-ng
 
-          python3 -c "import scripts.run_cooja_headless as r; s=list(range(1, int('${{ inputs.num_seeds }}' or '5') + 1)); r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
+          python3 -c "import scripts.run_cooja_headless as r; total=int('${{ inputs.num_seeds }}' or '30'); sh=int('${{ matrix.shard }}'); s=list(range(1, total + 1))[sh - 1::3]; print('Seeds:', s); s and r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
 
       - name: Upload Statistics Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: stats-s${{ matrix.scheme }}-g${{ matrix.group }}
+          name: stats-s${{ matrix.scheme }}-g${{ matrix.group }}-sh${{ matrix.shard }}
           path: Statistics/
-          retention-days: 1
+          retention-days: 2
+          if-no-files-found: ignore
 
-  simulate-ablations:
+  simulate-sweeps-b:
+    runs-on: ubuntu-latest
+    container: contiker/contiki-ng:latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        scheme: [5, 6, 7, 8]
+        group: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+        shard: [1, 2, 3]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17 (Required to prevent Java 25 bytecode mismatch with Gradle 8.1.1)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Gradle Dependencies Across All Jobs
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            /home/user/.gradle/caches
+          key: cooja-gradle-${{ hashFiles('contiki-ng-define/tools/cooja/build.gradle') }}
+          restore-keys: |
+            cooja-gradle-
+
+      - name: Run Cooja Headless Simulation Batch (Shard ${{ matrix.shard }}/3)
+        run: |
+          rm -rf Statistics/*_stats_.txt Statistics/*.csv
+          if [ ! -f "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja/build.gradle" ] && [ -f "/home/user/contiki-ng/tools/cooja/build.gradle" ]; then
+            rm -rf "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja"
+            cp -a /home/user/contiki-ng/tools/cooja "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja"
+          fi
+          mkdir -p /home/user
+          rm -rf /home/user/contiki-ng
+          ln -sfn "$GITHUB_WORKSPACE/contiki-ng-define" /home/user/contiki-ng
+
+          python3 -c "import scripts.run_cooja_headless as r; total=int('${{ inputs.num_seeds }}' or '30'); sh=int('${{ matrix.shard }}'); s=list(range(1, total + 1))[sh - 1::3]; print('Seeds:', s); s and r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
+
+      - name: Upload Statistics Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stats-s${{ matrix.scheme }}-g${{ matrix.group }}-sh${{ matrix.shard }}
+          path: Statistics/
+          retention-days: 2
+          if-no-files-found: ignore
+
+  simulate-ablations-n100:
     runs-on: ubuntu-latest
     container: contiker/contiki-ng:latest
     timeout-minutes: 360
@@ -74,7 +129,7 @@ jobs:
       fail-fast: false
       matrix:
         scheme: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
-        group: [2, 10] # group 2 -> N=100, group 10 -> N=500
+        group: [2] # group 2 -> N=100 (all seeds run safely in one job)
 
     steps:
       - name: Checkout repository
@@ -97,7 +152,7 @@ jobs:
           restore-keys: |
             cooja-gradle-
 
-      - name: Run Cooja Ablation & Control Batch
+      - name: Run Cooja Ablation & Control Batch (N=100)
         run: |
           rm -rf Statistics/*_stats_.txt Statistics/*.csv
           if [ ! -f "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja/build.gradle" ] && [ -f "/home/user/contiki-ng/tools/cooja/build.gradle" ]; then
@@ -108,17 +163,71 @@ jobs:
           rm -rf /home/user/contiki-ng
           ln -sfn "$GITHUB_WORKSPACE/contiki-ng-define" /home/user/contiki-ng
 
-          python3 -c "import scripts.run_cooja_headless as r; s=list(range(1, int('${{ inputs.num_seeds }}' or '5') + 1)); r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
+          python3 -c "import scripts.run_cooja_headless as r; s=list(range(1, int('${{ inputs.num_seeds }}' or '30') + 1)); print('Seeds:', s); r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
 
       - name: Upload Ablation Artifact
         uses: actions/upload-artifact@v4
         with:
           name: stats-ablation-s${{ matrix.scheme }}-g${{ matrix.group }}
           path: Statistics/
-          retention-days: 1
+          retention-days: 2
+          if-no-files-found: ignore
+
+  simulate-ablations-n500:
+    runs-on: ubuntu-latest
+    container: contiker/contiki-ng:latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        scheme: [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28]
+        group: [10] # group 10 -> N=500 (sharded across 3 jobs of 10 seeds each)
+        shard: [1, 2, 3]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Gradle Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            /home/user/.gradle/caches
+          key: cooja-gradle-${{ hashFiles('contiki-ng-define/tools/cooja/build.gradle') }}
+          restore-keys: |
+            cooja-gradle-
+
+      - name: Run Cooja Ablation & Control Batch (N=500, Shard ${{ matrix.shard }}/3)
+        run: |
+          rm -rf Statistics/*_stats_.txt Statistics/*.csv
+          if [ ! -f "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja/build.gradle" ] && [ -f "/home/user/contiki-ng/tools/cooja/build.gradle" ]; then
+            rm -rf "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja"
+            cp -a /home/user/contiki-ng/tools/cooja "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja"
+          fi
+          mkdir -p /home/user
+          rm -rf /home/user/contiki-ng
+          ln -sfn "$GITHUB_WORKSPACE/contiki-ng-define" /home/user/contiki-ng
+
+          python3 -c "import scripts.run_cooja_headless as r; total=int('${{ inputs.num_seeds }}' or '30'); sh=int('${{ matrix.shard }}'); s=list(range(1, total + 1))[sh - 1::3]; print('Seeds:', s); s and r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
+
+      - name: Upload Ablation Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: stats-ablation-s${{ matrix.scheme }}-g${{ matrix.group }}-sh${{ matrix.shard }}
+          path: Statistics/
+          retention-days: 2
+          if-no-files-found: ignore
 
   merge-and-plot:
-    needs: [simulate-sweeps, simulate-ablations]
+    needs: [simulate-sweeps-a, simulate-sweeps-b, simulate-ablations-n100, simulate-ablations-n500]
     if: always()
     runs-on: ubuntu-latest
     container: contiker/contiki-ng:latest
@@ -143,7 +252,7 @@ jobs:
       - name: Merge All Multi-Seed Statistics and Plot
         run: |
           python3 -c '
-          import os, sys, glob, shutil
+          import os, sys, glob
 
           os.makedirs("Statistics", exist_ok=True)
           merged = {}
@@ -152,7 +261,7 @@ jobs:
           for filepath in sorted(glob.glob("tmp_artifacts/**/*_cooja_stats_.txt", recursive=True)):
               fname = os.path.basename(filepath)
               with open(filepath, "r") as f:
-                  for idx, line in enumerate(f):
+                  for line in f:
                       line = line.strip()
                       if line:
                           parts = [p.strip() for p in line.split(",") if p.strip()]
@@ -162,10 +271,10 @@ jobs:
                               merged.setdefault(fname, {})[key] = line
 
           if not merged:
-              print(f"FATAL ERROR: No valid 19-column Cooja rows with num_joined > 0 found (downloaded entries: {len(downloaded_files)})!")
+              print(f"FATAL ERROR: No valid Cooja rows with num_joined > 0 found (downloaded entries: {len(downloaded_files)})!")
               sys.exit(1)
 
-          for old_f in glob.glob("Statistics/*_stats_.txt"):
+          for old_f in glob.glob("Statistics/*_stats_.txt") + glob.glob("Statistics/join_times_*.csv"):
               os.remove(old_f)
 
           for fname, row_dict in merged.items():
@@ -179,8 +288,25 @@ jobs:
                       f.write("\n".join(sorted_lines) + "\n")
               print(f"Merged {len(sorted_lines)} real Cooja seed rows into {out_path}")
 
-          for csv_file in glob.glob("tmp_artifacts/**/join_times_*.csv", recursive=True):
-              shutil.copy(csv_file, os.path.join("Statistics", os.path.basename(csv_file)))
+          # Concatenate and sort per-node joining-time CDF CSVs across all shards
+          csv_merged = {}
+          for csv_file in sorted(glob.glob("tmp_artifacts/**/join_times_*.csv", recursive=True)):
+              cname = os.path.basename(csv_file)
+              with open(csv_file, "r") as f:
+                  for line in f:
+                      val = line.strip()
+                      if val:
+                          try:
+                              csv_merged.setdefault(cname, []).append(float(val))
+                          except ValueError:
+                              pass
+
+          for cname, vals in csv_merged.items():
+              vals.sort()
+              out_csv = os.path.join("Statistics", cname)
+              with open(out_csv, "w") as f:
+                  f.write("\n".join(f"{v:.4f}" for v in vals) + "\n")
+              print(f"Merged {len(vals)} per-node join timestamps into {out_csv}")
           '
 
           python3 scripts/plot_results.py
@@ -215,4 +341,4 @@ jobs:
 
           git add -A Statistics/ Plots/ Results/
           find . -maxdepth 2 -name "*.png" -exec git add {} + 2>/dev/null || true
-          git diff --staged --quiet || (git commit -m "Commit 100% real multi-seed Cooja statistics, plots, and Table IV rows" && git push origin main)
+          git diff --staged --quiet || (git commit -m "Commit 100% real 30-seed Cooja statistics, plots, and Table IV rows" && git push origin main)
