@@ -70,20 +70,21 @@ isqrt_u16(uint16_t val)
   return res;
 }
 
+/* Contiki-NG Cooja stores simMoteID big-endian in the last 2 bytes of linkaddr_t */
 static uint16_t
 get_preferred_parent_id(void)
 {
   if(curr_instance.used && curr_instance.dag.preferred_parent != NULL) {
     const linkaddr_t *ll = (const linkaddr_t *)rpl_neighbor_get_lladdr(curr_instance.dag.preferred_parent);
     if(ll != NULL) {
-      return (uint16_t)ll->u8[LINKADDR_SIZE - 1];
+      return (uint16_t)(((uint16_t)ll->u8[LINKADDR_SIZE - 2] << 8) | (uint16_t)ll->u8[LINKADDR_SIZE - 1]);
     }
   }
   struct tsch_neighbor *ts = tsch_queue_get_time_source();
   if(ts != NULL) {
     const linkaddr_t *ts_addr = tsch_queue_get_nbr_address(ts);
     if(ts_addr != NULL) {
-      return (uint16_t)ts_addr->u8[LINKADDR_SIZE - 1];
+      return (uint16_t)(((uint16_t)ts_addr->u8[LINKADDR_SIZE - 2] << 8) | (uint16_t)ts_addr->u8[LINKADDR_SIZE - 1]);
     }
   }
   return 0;
@@ -241,19 +242,16 @@ update_rank_tier(uint8_t do_immediate_refresh, uint8_t do_guard, uint8_t use_id_
       cached_h_u = 1;
     }
     prev_rank = cur_rank;
-    uint16_t pid = get_preferred_parent_id();
-    if(use_id_hash) {
-      parent_ch_offset = (uint8_t)(((uint32_t)pid * 2654435761UL) % NUM_CHANNELS);
-    } else {
-      uint8_t eff_p_tier = (pid == 1) ? 0 : ((p_tier == 0) ? 1 : p_tier);
-      parent_ch_offset = compute_subband_offset(pid, eff_p_tier);
-    }
     parent_switched_flag = 0;
   }
 
+  uint16_t pid = get_preferred_parent_id();
   if(use_id_hash) {
+    parent_ch_offset = (uint8_t)(((uint32_t)pid * 2654435761UL) % NUM_CHANNELS);
     ch_offset_u = (uint8_t)(((uint32_t)node_id * 2654435761UL) % NUM_CHANNELS);
   } else {
+    uint8_t eff_p_tier = (pid == 1) ? 0 : ((p_tier == 0) ? 1 : p_tier);
+    parent_ch_offset = compute_subband_offset(pid, eff_p_tier);
     ch_offset_u = compute_subband_offset(node_id, cached_h_u);
   }
   if(do_guard && node_id != 1 && ch_offset_u == parent_ch_offset) {
@@ -459,19 +457,21 @@ apply_scheme_schedule(void)
       break;
   }
 
-  /* State 1: Parent Time-Source Keep-Alive RX and Failover using real Contiki-NG tsch_last_sync_time */
+  /* State 1: Parent Time-Source Keep-Alive RX using real Contiki-NG tsch_last_sync_time
+     (non-corrupting: probes parent_ch_offset for 15 SFs, then guard-shifted offset for non-root parents) */
   if(enable_keepalive && node_id != 1) {
-    clock_time_t sync_age_ticks = clock_time() - tsch_last_sync_time;
+    clock_time_t now = clock_time();
+    clock_time_t sync_age_ticks = (now > tsch_last_sync_time) ? (now - tsch_last_sync_time) : 0;
     if(sync_age_ticks >= (clock_time_t)(30 * CLOCK_SECOND)) {
+      uint16_t pid = get_preferred_parent_id();
       if(sync_wait_cnt < 20) {
-        uint8_t rx_off = (sync_wait_cnt < 10)
+        uint8_t rx_off = (sync_wait_cnt < 15 || pid == 1)
                            ? parent_ch_offset
                            : guard_shift_offset(parent_ch_offset, ka_allow_zero);
         sync_wait_cnt++;
         set_slot0_link(rx_off, LINK_OPTION_RX | LINK_OPTION_TIME_KEEPING, LINK_TYPE_NORMAL);
         return;
       } else {
-        parent_ch_offset = (uint8_t)((parent_ch_offset + 1U) % NUM_CHANNELS);
         sync_wait_cnt = 0;
       }
     } else {
