@@ -12,8 +12,8 @@
 /* Standard RFC 6206 / RFC 6550 / RFC 6775 dense-network settings
    (applied identically across DEFINE and all 27 comparison/ablation schemes) */
 #define RPL_CONF_DIO_INTERVAL_MIN 11                /* 2^11 ms = 2.048 s */
-#define RPL_CONF_DIO_INTERVAL_DOUBLINGS 8
-#define RPL_CONF_DIO_REDUNDANCY 3                   /* RFC 6206 Trickle suppression (k=3) */
+#define RPL_CONF_DIO_INTERVAL_DOUBLINGS 3           /* I_max = 2^14 ms = 16.384 s */
+#define RPL_CONF_DIO_REDUNDANCY 10                  /* Stock Contiki-NG k=10 (enables real 32 vs 64 nbr_table test) */
 #define RPL_CONF_DIS_START_DELAY 3600               /* Passive DIO reception; prevent 450-node DIS storm */
 #define RPL_CONF_DIS_INTERVAL (3600 * CLOCK_SECOND)
 #define RPL_CONF_DAO_DELAY (120 * CLOCK_SECOND)     /* Stagger upward DAOs on single cell (0,0) */
@@ -26,6 +26,7 @@
    State-1 RX keep-alive in node.c still monitors real tsch_last_sync_time */
 #define TSCH_CONF_KEEPALIVE_TIMEOUT 0
 #define TSCH_CONF_MAX_KEEPALIVE_TIMEOUT (60 * CLOCK_SECOND)
+#define TSCH_CONF_DESYNC_THRESHOLD (90 * CLOCK_SECOND)
 #define TSCH_CONF_MAC_MIN_BE 2
 #define TSCH_CONF_MAC_MAX_BE 7
 #define TSCH_CONF_MAC_MAX_FRAME_RETRIES 3

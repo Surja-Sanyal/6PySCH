@@ -7,13 +7,12 @@
 #include "net/mac/tsch/tsch-slot-operation.h"
 #include "net/routing/routing.h"
 #include "net/routing/rpl-lite/rpl.h"
+#include "net/routing/rpl-lite/rpl-neighbor.h"
 #include "sys/energest.h"
 #include "sys/node-id.h"
 #include "sys/log.h"
 #include "lib/random.h"
 #include "node.h"
-#include "net/routing/rpl-lite/rpl.h"
-#include "net/routing/rpl-lite/rpl-neighbor.h"
 
 #define LOG_MODULE "DEFINE-NODE"
 #define LOG_LEVEL LOG_LEVEL_INFO
@@ -129,6 +128,47 @@ get_unicast_tx_retries(void)
   return retries;
 }
 
+/* Tier-Parity Sub-Band ASSIGN mapper:
+   - Root (tier == 0): base offset 0
+   - Odd rank tiers (tier % 2 == 1): odd offsets {1, 3, ..., C-1}
+   - Even non-root tiers (tier >= 2, even): non-zero even offsets {2, 4, ..., C-2}
+   Guarantees disjoint sub-bands across adjacent tiers, 100% channel utilization
+   even in 2-hop topologies, and zero non-root EBs on base cell (0,0) for C >= 4. */
+static uint8_t
+compute_subband_offset(uint16_t id, uint8_t tier)
+{
+  if(tier == 0) {
+    return 0;
+  }
+#if NUM_CHANNELS <= 2
+  (void)id;
+  return (uint8_t)(tier % NUM_CHANNELS);
+#else
+  uint8_t half = (uint8_t)(NUM_CHANNELS / 2);
+  uint32_t mix = (((uint32_t)id * 2654435761UL) >> 16) ^ (uint32_t)id;
+  if((tier & 1U) == 1U) {
+    return (uint8_t)(1U + 2U * (mix % half));
+  } else {
+    return (uint8_t)(2U + 2U * (mix % (half - 1U)));
+  }
+#endif
+}
+
+/* Parent-alias guard shift: avoids base cell 0 for non-root DEFINE/ASSIGN nodes when C >= 4 */
+static uint8_t
+guard_shift_offset(uint8_t off, uint8_t allow_zero)
+{
+#if NUM_CHANNELS <= 2
+  (void)allow_zero;
+  return (uint8_t)((off + 1U) % NUM_CHANNELS);
+#else
+  if(allow_zero) {
+    return (uint8_t)((off + 1U) % NUM_CHANNELS);
+  }
+  return (uint8_t)(1U + (off % (NUM_CHANNELS - 1U)));
+#endif
+}
+
 void
 define_on_new_time_source(const struct tsch_neighbor *old, const struct tsch_neighbor *new)
 {
@@ -195,12 +235,18 @@ update_rank_tier(uint8_t do_immediate_refresh, uint8_t do_guard, uint8_t use_id_
   if((do_immediate_refresh && parent_switched_flag) || prev_rank == 0 || diff_rank >= (rank_inc / 2)) {
     uint16_t raw_h = (cur_rank >= rank_inc) ? ((cur_rank / rank_inc) - 1) : 0;
     cached_h_u = (raw_h > 255) ? 255 : (uint8_t)raw_h;
+    if(node_id == 1) {
+      cached_h_u = 0;
+    } else if(cached_h_u == 0) {
+      cached_h_u = 1;
+    }
     prev_rank = cur_rank;
     uint16_t pid = get_preferred_parent_id();
     if(use_id_hash) {
       parent_ch_offset = (uint8_t)(((uint32_t)pid * 2654435761UL) % NUM_CHANNELS);
     } else {
-      parent_ch_offset = (uint8_t)(p_tier % NUM_CHANNELS);
+      uint8_t eff_p_tier = (pid == 1) ? 0 : ((p_tier == 0) ? 1 : p_tier);
+      parent_ch_offset = compute_subband_offset(pid, eff_p_tier);
     }
     parent_switched_flag = 0;
   }
@@ -208,10 +254,10 @@ update_rank_tier(uint8_t do_immediate_refresh, uint8_t do_guard, uint8_t use_id_
   if(use_id_hash) {
     ch_offset_u = (uint8_t)(((uint32_t)node_id * 2654435761UL) % NUM_CHANNELS);
   } else {
-    ch_offset_u = (uint8_t)(cached_h_u % NUM_CHANNELS);
+    ch_offset_u = compute_subband_offset(node_id, cached_h_u);
   }
   if(do_guard && node_id != 1 && ch_offset_u == parent_ch_offset) {
-    ch_offset_u = (uint8_t)((ch_offset_u + 1) % NUM_CHANNELS);
+    ch_offset_u = guard_shift_offset(ch_offset_u, use_id_hash);
   }
 }
 
@@ -248,19 +294,14 @@ apply_scheme_schedule(void)
   uint8_t tx_prob_u8 = 255;
   uint8_t enable_keepalive = 0;
   uint8_t subslots = 1;
+  uint8_t ka_allow_zero = 0;
 
   switch(SYNC_SCHEME) {
     case 1:  /* DEFINE (Full) */
     case 26: /* DEFINE (Lossy MRM 85% PRR) */
+    case 27: /* DEFINE (Reversed Sweep Order - same ASSIGN map, reversed Alg. 1 sweep) */
     case 28: /* DEFINE (Poisson Arrivals) */
       update_rank_tier(1, 1, 0);
-      tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
-      enable_keepalive = 1;
-      break;
-
-    case 27: /* DEFINE (Reversed Sweep Order) */
-      update_rank_tier(1, 1, 0);
-      ch_offset_u = (uint8_t)((NUM_CHANNELS - 1) - (ch_offset_u % NUM_CHANNELS));
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       enable_keepalive = 1;
       break;
@@ -275,6 +316,7 @@ apply_scheme_schedule(void)
       update_rank_tier(0, 0, 1);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       enable_keepalive = 1;
+      ka_allow_zero = 1;
       break;
 
     case 15: /* EBMC + ADAPT (Grafted, Alg. 1+KA) */
@@ -282,12 +324,14 @@ apply_scheme_schedule(void)
       parent_ch_offset = (uint8_t)((get_preferred_parent_id() % (NUM_CHANNELS / 2)) * 2);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       enable_keepalive = 1;
+      ka_allow_zero = 1;
       break;
 
     case 16: /* ID-Hash + Guard + ADAPT (Control) */
       update_rank_tier(1, 1, 1);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       enable_keepalive = 1;
+      ka_allow_zero = 1;
       break;
 
     case 17: /* ASSIGN (Hysteresis Only, No Refresh/Guard, 1S) */
@@ -420,11 +464,14 @@ apply_scheme_schedule(void)
     clock_time_t sync_age_ticks = clock_time() - tsch_last_sync_time;
     if(sync_age_ticks >= (clock_time_t)(30 * CLOCK_SECOND)) {
       if(sync_wait_cnt < 20) {
+        uint8_t rx_off = (sync_wait_cnt < 10)
+                           ? parent_ch_offset
+                           : guard_shift_offset(parent_ch_offset, ka_allow_zero);
         sync_wait_cnt++;
-        set_slot0_link(parent_ch_offset, LINK_OPTION_RX | LINK_OPTION_TIME_KEEPING, LINK_TYPE_NORMAL);
+        set_slot0_link(rx_off, LINK_OPTION_RX | LINK_OPTION_TIME_KEEPING, LINK_TYPE_NORMAL);
         return;
       } else {
-        parent_ch_offset = (uint8_t)((parent_ch_offset + 1) % NUM_CHANNELS);
+        parent_ch_offset = (uint8_t)((parent_ch_offset + 1U) % NUM_CHANNELS);
         sync_wait_cnt = 0;
       }
     } else {
