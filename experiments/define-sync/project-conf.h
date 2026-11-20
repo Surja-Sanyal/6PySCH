@@ -27,9 +27,11 @@
 #define TSCH_CONF_MAC_MIN_BE 2
 #define TSCH_CONF_MAC_MAX_BE 7
 
-/* Deterministic 6TiSCH minimal schedule on association regardless of EB channel offset */
+/* Initialize standard minimal schedule (slotframe 0, length SF_LENGTH, cell (0,0))
+   on every associating pledge regardless of which vertical channel offset carried the EB */
 #define TSCH_SCHEDULE_CONF_WITH_6TISCH_MINIMAL 1
-#define TSCH_CONF_INIT_SCHEDULE_FROM_EB 0
+#define TSCH_CONF_INIT_SCHEDULE_FROM_EB 1
+#define TSCH_PACKET_CONF_EB_WITH_SLOTFRAME_AND_LINK 0
 
 #ifndef SYNC_SCHEME
 #define SYNC_SCHEME 1
@@ -68,13 +70,11 @@
 #define ONE_SF_PERIOD (SF_LENGTH * (CLOCK_SECOND / 100))
 #define BASE_SF_PERIOD (EB_MULT * ONE_SF_PERIOD)
 
-/* Keep 1 fresh EB available in n_eb for all schemes; per-slotframe Bernoulli probability
-   in node.c (State 2 LINK_TYPE_ADVERTISING/_ONLY vs State 3 LINK_TYPE_NORMAL) regulates exact EB rate */
+/* Keep 1 fresh EB available in n_eb for all schemes identically; per-slotframe Bernoulli gating
+   in node.c (State 2 LINK_TYPE_ADVERTISING/_ONLY vs State 3 LINK_TYPE_NORMAL) governs exact EB rate */
 #define TSCH_CONF_EB_PERIOD ONE_SF_PERIOD
-#define TSCH_CONF_MAX_EB_PERIOD (4 * ONE_SF_PERIOD)
+#define TSCH_CONF_MAX_EB_PERIOD ONE_SF_PERIOD
 #define TSCH_CONF_CHANNEL_SCAN_DURATION ONE_SF_PERIOD
-
-#define TSCH_PACKET_CONF_EB_WITH_SLOTFRAME_AND_LINK 1
 
 /* Support 8-point channel granularity: 2, 4, 6, 8, 10, 12, 14, 16 */
 #if NUM_CHANNELS == 2
