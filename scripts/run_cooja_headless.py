@@ -173,22 +173,14 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
         TIMEOUT({timeout_ms}, log.testOK());
         var joined = 0;
         var target = {target_motes};
-        var last_join_time = 0;
-        GENERATE_MSG(10000, "CHECK_STAGNATION");
         while (joined &lt; target) {{
           YIELD();
-          if (msg.equals("CHECK_STAGNATION")) {{
-            if (joined &gt; 0 &amp;&amp; (time - last_join_time) &gt; 90000000 &amp;&amp; time &gt; 120000000) {{
-              log.log("STAGNATION_STOP at time=" + time + " joined=" + joined + "\\n");
-              log.testOK();
-            }}
-            GENERATE_MSG(10000, "CHECK_STAGNATION");
-          }}
           if (msg.contains("CSV_JOIN")) {{
             log.log("T_US=" + time + " " + msg + "\\n");
             joined++;
-            last_join_time = time;
-          }} else if (msg.contains("CSV_SLOT0_TX") || msg.contains("CSV_ENERGEST") || msg.contains("CSV_SCAN_ENERGEST") || msg.contains("CSV_PARENT_SWITCH")) {{
+          }} else if (msg.contains("CSV_ENERGEST")) {{
+            log.log("T_US=" + time + " " + msg + "\\n");
+          }} else if (msg.contains("CSV_SLOT0_TX") || msg.contains("CSV_SCAN_ENERGEST") || msg.contains("CSV_PARENT_SWITCH")) {{
             log.log(msg + "\\n");
           }}
         }}
@@ -226,23 +218,25 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
 
     join_re = re.compile(r"(?:T_US=(\d+)\s+)?CSV_JOIN,id=(\d+),asn=(\d+),sync_asn=(\d+),scan_rx_us=(\d+),parent=(\d+),tier=(\d+),nbrs=(\d+)")
     tx_re = re.compile(r"CSV_SLOT0_TX,id=(\d+),sf=(\d+),ch=(\d+),tier=(\d+),parent=(\d+),sub=(\d+),dsf=(\d+),q=(\d+)")
-    en_re = re.compile(r"CSV_ENERGEST,id=(\d+),sf=(\d+),eb=(\d+),tx_us=(\d+),rx_us=(\d+),nbrs=(\d+),switches=(\d+),retries=(\d+)")
+    en_re = re.compile(r"(?:T_US=(\d+)\s+)?CSV_ENERGEST,id=(\d+),sf=(\d+),eb=(\d+),tx_us=(\d+),rx_us=(\d+),nbrs=(\d+),switches=(\d+),retries=(\d+)")
     scan_re = re.compile(r"CSV_SCAN_ENERGEST,id=(\d+),scan_rx_us=(\d+)")
 
-    for seed in seeds:
-        shutil.rmtree(os.path.join(EXP_DIR, "build"), ignore_errors=True)
-        shutil.rmtree(os.path.join(EXP_DIR, "obj_cooja"), ignore_errors=True)
-        for f_old in os.listdir(EXP_DIR):
-            if f_old.endswith(".cooja") or f_old.endswith(".o") or f_old.endswith(".d"):
-                try:
-                    os.remove(os.path.join(EXP_DIR, f_old))
-                except OSError:
-                    pass
+    # Clean build artifacts once per (scheme, SF, C, EB, Cap) configuration; reuse compiled node.cooja across seeds
+    shutil.rmtree(os.path.join(EXP_DIR, "build"), ignore_errors=True)
+    shutil.rmtree(os.path.join(EXP_DIR, "obj_cooja"), ignore_errors=True)
+    for f_old in os.listdir(EXP_DIR):
+        if f_old.endswith(".cooja") or f_old.endswith(".o") or f_old.endswith(".d"):
+            try:
+                os.remove(os.path.join(EXP_DIR, f_old))
+            except OSError:
+                pass
 
+    sim_timeout_ms = 300000
+
+    for seed in seeds:
         coords = load_realdata_coords(n_nodes, area, seed=seed)
         adj = build_interference_adj(coords, tx_range=50.0)
         csc_path = os.path.join(EXP_DIR, f"sim_scheme_{scheme_id}_cap{nbr_cap}.csc")
-        sim_timeout_ms = max(600000, int(round(600000.0 * (sf_len / 61.0))))
         generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=seed, timeout_ms=sim_timeout_ms, nbr_cap=nbr_cap)
 
         testlog_path = os.path.join(COOJA_DIR, "COOJA.testlog")
@@ -272,12 +266,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         node_parent = {1: 0}
         node_tier = {1: 0}
         node_nbrs = {}
-        node_tx_us = {}
-        node_rx_us = {}
-        node_eb_cnt = {}
-        node_active_sfs = {}
-        node_switches = {}
-        node_retries = {}
+        node_en_records = {}
         sf_ch_senders = {}
         tx_log_count = 0
         en_log_count = 0
@@ -317,20 +306,44 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
             me = en_re.search(line)
             if me:
                 en_log_count += 1
-                nid = int(me.group(1))
-                node_active_sfs[nid] = max(node_active_sfs.get(nid, 0), int(me.group(2)))
-                node_eb_cnt[nid] = max(node_eb_cnt.get(nid, 0), int(me.group(3)))
-                node_tx_us[nid] = max(node_tx_us.get(nid, 0), int(me.group(4)))
-                node_rx_us[nid] = max(node_rx_us.get(nid, 0), int(me.group(5)))
-                node_nbrs[nid] = max(node_nbrs.get(nid, 0), int(me.group(6)))
-                node_switches[nid] = max(node_switches.get(nid, 0), int(me.group(7)))
-                node_retries[nid] = max(node_retries.get(nid, 0), int(me.group(8)))
+                t_us = int(me.group(1)) if me.group(1) is not None else -1
+                nid = int(me.group(2))
+                node_en_records.setdefault(nid, []).append((
+                    t_us,
+                    int(me.group(3)),  # sf_callbacks
+                    int(me.group(4)),  # eb_cnt
+                    int(me.group(5)),  # tx_us
+                    int(me.group(6)),  # rx_us
+                    int(me.group(7)),  # nbrs
+                    int(me.group(8)),  # switches
+                    int(me.group(9)),  # retries
+                ))
 
         asns = np.sort(np.array(list(joined_asns.values()), dtype=float))
         num_joined = len(asns)
         if num_joined == 0:
             print(f"WARNING: 0 nodes completed join in seed={seed} (tx_logs={tx_log_count}, energest_logs={en_log_count})")
             continue
+
+        # Evaluate Energest counters over the true formation window [0, T_form]
+        max_join_us = max(join_times_us.values()) if join_times_us else (sim_timeout_ms * 1000)
+        node_active_sfs = {}
+        node_eb_cnt = {}
+        node_tx_us = {}
+        node_rx_us = {}
+        node_switches = {}
+        node_retries = {}
+        for nid, recs in node_en_records.items():
+            in_win = [r for r in recs if r[0] < 0 or r[0] <= max_join_us + 1000000]
+            chosen = in_win[-1] if in_win else recs[0]
+            _, sf_cb, eb_cnt, tx_u, rx_u, nbr_c, sw_c, ret_c = chosen
+            node_active_sfs[nid] = sf_cb
+            node_eb_cnt[nid] = eb_cnt
+            node_tx_us[nid] = tx_u
+            node_rx_us[nid] = rx_u
+            node_nbrs[nid] = max(node_nbrs.get(nid, 0), nbr_c)
+            node_switches[nid] = sw_c
+            node_retries[nid] = ret_c
 
         # Count physical-layer co-channel shared-slot collided transmissions on G_I
         coll_tree, coll_sib, coll_cross = 0, 0, 0
@@ -371,9 +384,10 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
 
         t_pen_s = 320.0 * (0.65 + 0.35 * (n_nodes / 200.0)) * (0.75 + 0.25 * (sf_len / 61.0)) * (0.80 + 0.20 * (n_ch / 16.0))
         t_sync_hat_s = 0.55 * median_join_s + unjoined_frac * t_pen_s
-        t_form_s = (max(join_times_us.values()) / 1e6) if join_times_us else (sim_timeout_ms / 1000.0)
 
-        # Raw Energest counters over [0, T_form] (joined + real scanning pledges)
+        # Actual elapsed simulation horizon (T_form if 100% joined, else full timeout) for Fig. 9(d) duty cycle
+        t_end_s = (max_join_us / 1e6) if (num_joined >= n_nodes and join_times_us) else (sim_timeout_ms / 1000.0)
+
         slot0_tx_us_sum = sum(node_tx_us.values())
         slot0_rx_us_sum = sum(node_rx_us.values())
         scan_rx_us_sum = sum(scan_rx_us_map.values())
@@ -394,7 +408,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
                 coll_total, slot0_equiv_tx_ticks, scan_rx_ticks_32k,
                 seed, round(eb_rate, 4), coll_tree, coll_sib, coll_cross,
                 round(mean_switches, 4), round(mean_retries, 4),
-                slot0_tx_only_ticks, round(t_form_s, 4)
+                slot0_tx_only_ticks, round(t_end_s, 4)
             ]
             fp.write(",".join(map(str, row)) + ",\n")
 

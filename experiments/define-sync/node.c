@@ -4,6 +4,7 @@
 #include "net/ipv6/uip-ds6-nbr.h"
 #include "net/link-stats.h"
 #include "net/mac/tsch/tsch.h"
+#include "net/mac/tsch/tsch-slot-operation.h"
 #include "net/routing/routing.h"
 #include "net/routing/rpl-lite/rpl.h"
 #include "sys/energest.h"
@@ -20,7 +21,6 @@ static struct tsch_slotframe *sf_min;
 static uint8_t join_logged = 0;
 static uint16_t parent_switches = 0;
 static uint16_t last_ch_offset = 0xFFFF;
-static clock_time_t last_eb_period = 0;
 static uint32_t eb_tx_counter = 0;
 static uint32_t slot_callbacks = 0;
 static uint32_t boot_asn = 0;
@@ -39,12 +39,10 @@ static uint8_t parent_ch_offset = 0;
 static uint8_t phi_u = 0;
 static uint8_t sync_wait_cnt = 0;
 static uint8_t parent_switched_flag = 0;
-static uint32_t last_sync_asn = 0;
 static uint8_t cached_h_u = 0;
 
-/* Forward declarations */
+/* Forward declaration */
 static void set_slot0_link(uint16_t ch_offset, uint8_t link_opts, enum link_type ltype);
-static void safe_set_eb_period(clock_time_t period);
 
 /* 16-entry uint8 lookup table for exp(-gamma) scaled by 255 (P_min = 0.15 -> 38/255) */
 static const uint8_t exp_lut[16] = {
@@ -131,7 +129,6 @@ void
 define_on_new_time_source(const struct tsch_neighbor *old, const struct tsch_neighbor *new)
 {
   if(new != NULL) {
-    last_sync_asn = tsch_current_asn.ls4b;
     sync_wait_cnt = 0;
     parent_switched_flag = 1;
   }
@@ -164,23 +161,6 @@ set_slot0_link(uint16_t ch_offset, uint8_t link_opts, enum link_type ltype)
   }
 }
 
-static void
-safe_set_eb_period(clock_time_t period)
-{
-  clock_time_t min_period = (clock_time_t)(SF_LENGTH * (CLOCK_SECOND / 100));
-  if(min_period < 4) {
-    min_period = 4;
-  }
-  if(period < min_period) {
-    period = min_period;
-  }
-  clock_time_t diff = (period > last_eb_period) ? (period - last_eb_period) : (last_eb_period - period);
-  if(last_eb_period == 0 || diff >= (last_eb_period / 4 + 2)) {
-    tsch_set_eb_period(period);
-    last_eb_period = period;
-  }
-}
-
 static uint8_t
 compute_adapt_q_u8(uint32_t asn_now, int nbrs, uint8_t use_age, uint8_t use_dens, uint8_t use_phase)
 {
@@ -197,7 +177,7 @@ compute_adapt_q_u8(uint32_t asn_now, int nbrs, uint8_t use_age, uint8_t use_dens
   uint8_t lut_idx = (gamma_q2 > 15) ? 15 : (uint8_t)gamma_q2;
   uint8_t q_raw = (exp_lut[lut_idx] > 38) ? exp_lut[lut_idx] : 38;
   uint8_t q_scaled = (uint8_t)(q_raw / EB_MULT);
-  return (q_scaled > 10) ? q_scaled : 10;
+  return (q_scaled > 8) ? q_scaled : 8;
 }
 
 static void
@@ -262,11 +242,6 @@ apply_scheme_schedule(void)
 
   slot_callbacks++;
   int nbrs = get_active_neighbor_count();
-  clock_time_t one_sf_dur = (clock_time_t)(SF_LENGTH * (CLOCK_SECOND / 100));
-  if(one_sf_dur < 4) {
-    one_sf_dur = 4;
-  }
-  clock_time_t base_sf_dur = (clock_time_t)(EB_MULT * one_sf_dur);
 
   uint8_t tx_prob_u8 = 255;
   uint8_t enable_keepalive = 0;
@@ -438,10 +413,10 @@ apply_scheme_schedule(void)
       break;
   }
 
-  /* State 1: Parent Time-Source Keep-Alive RX and Failover */
+  /* State 1: Parent Time-Source Keep-Alive RX and Failover using real Contiki-NG tsch_last_sync_time */
   if(enable_keepalive && node_id != 1) {
-    uint32_t sync_age_slots = (asn_now > last_sync_asn) ? (asn_now - last_sync_asn) : 0;
-    if(sync_age_slots >= 3000UL) {
+    clock_time_t sync_age_ticks = clock_time() - tsch_last_sync_time;
+    if(sync_age_ticks >= (clock_time_t)(30 * CLOCK_SECOND)) {
       if(sync_wait_cnt < 20) {
         sync_wait_cnt++;
         set_slot0_link(parent_ch_offset, LINK_OPTION_RX | LINK_OPTION_TIME_KEEPING, LINK_TYPE_NORMAL);
@@ -449,20 +424,18 @@ apply_scheme_schedule(void)
       } else {
         parent_ch_offset = (uint8_t)((parent_ch_offset + 1) % NUM_CHANNELS);
         sync_wait_cnt = 0;
-        last_sync_asn = asn_now;
       }
+    } else {
+      sync_wait_cnt = 0;
     }
   }
 
   uint32_t delta_sf = (asn_now > join_asn) ? ((asn_now - join_asn) / SF_LENGTH) : 0;
-  clock_time_t target_period = (clock_time_t)((base_sf_dur * 255UL) / (tx_prob_u8 > 0 ? tx_prob_u8 : 10));
-  safe_set_eb_period(target_period);
 
-  /* For non-zero channel offsets, reserve at least 15% of slotframes for State 3 on (0,0)
-     so RPL DIOs and unicast control traffic are never starved */
+  /* Reserve at least 15% of slotframes for State 3 on (0,0) when ch_offset_u != 0 so DIOs are never starved */
   uint8_t eb_gate = (ch_offset_u != 0 && tx_prob_u8 > 216) ? 216 : tx_prob_u8;
   uint8_t r_draw = (uint8_t)(random_rand() & 0xFF);
-  if(eb_gate > 0 && r_draw <= eb_gate) {
+  if(eb_gate > 0 && r_draw < eb_gate) {
     enum link_type st2_type = (ch_offset_u == 0) ? LINK_TYPE_ADVERTISING : LINK_TYPE_ADVERTISING_ONLY;
     set_slot0_link(ch_offset_u, LINK_OPTION_TX | LINK_OPTION_RX | LINK_OPTION_SHARED | LINK_OPTION_TIME_KEEPING, st2_type);
     eb_tx_counter += subslots;
@@ -515,7 +488,6 @@ PROCESS_THREAD(define_node_process, ev, data)
     join_asn = 0;
     sync_asn = 0;
     boot_asn = 0;
-    last_sync_asn = 0;
     phi_u = 0;
     join_tx_ticks = energest_type_time(ENERGEST_TYPE_TRANSMIT);
     join_rx_ticks = energest_type_time(ENERGEST_TYPE_LISTEN);
@@ -551,7 +523,6 @@ PROCESS_THREAD(define_node_process, ev, data)
     if(tsch_is_associated && NETSTACK_ROUTING.node_has_joined()) {
       last_ch_offset = 0xFFFF;
       join_asn = tsch_current_asn.ls4b;
-      last_sync_asn = join_asn;
       uint8_t max_phi = (NUM_CHANNELS < 4) ? NUM_CHANNELS : 4;
       phi_u = (uint8_t)(((node_id ^ (join_asn / SF_LENGTH)) + (random_rand() & 0x03)) % max_phi);
       parent_switched_flag = 1;
@@ -574,7 +545,6 @@ PROCESS_THREAD(define_node_process, ev, data)
                get_active_neighbor_count());
       join_logged = 1;
     } else {
-      /* Log real Energest LISTEN time periodically for still-scanning pledges (every ~10 s) */
       if((poll_ticks % 100) == 0) {
         energest_flush();
         uint64_t cur_rx = energest_type_time(ENERGEST_TYPE_LISTEN);

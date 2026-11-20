@@ -9,18 +9,27 @@
 /* RFC 8180 Section 6.1: MinHopRankIncrease = 256 */
 #define RPL_CONF_MIN_HOPRANKINC 256
 
-/* Standard RFC 6206 / RFC 6550 / RFC 6775 settings for dense single-cell 6TiSCH-MC
-   (applied identically across DEFINE and all baselines) */
+/* Standard RFC 6206 / RFC 6550 / RFC 6775 / Table III settings
+   (applied identically across DEFINE and all 27 comparison/ablation schemes) */
 #define RPL_CONF_DIO_INTERVAL_MIN 13                /* 2^13 ms = 8.192 s */
 #define RPL_CONF_DIO_INTERVAL_DOUBLINGS 8
 #define RPL_CONF_DIO_REDUNDANCY 3                   /* RFC 6206 Trickle suppression (k=3) */
-#define RPL_CONF_DIS_INTERVAL (120 * CLOCK_SECOND)  /* Prevent simultaneous DIS storms on (0,0) */
-#define RPL_CONF_WITH_DAO_ACK 0                     /* Upward DODAG join matching Fig. 3 model */
+#define RPL_CONF_DIS_INTERVAL (120 * CLOCK_SECOND)  /* Prevent simultaneous DIS storms */
+#define RPL_CONF_DAO_DELAY (30 * CLOCK_SECOND)      /* Stagger upward DAOs on single cell (0,0) */
+#define RPL_CONF_WITH_DAO_ACK 0
 #define RPL_CONF_PROBING_INTERVAL (180 * CLOCK_SECOND)
 #define UIP_CONF_ND6_SEND_NS 0
 #define UIP_CONF_ND6_SEND_NA 0
+
+/* Table III / Section IV-A timekeeping guard (T_sync_max = 30 s) & CSMA backoff */
+#define TSCH_CONF_KEEPALIVE_TIMEOUT (30 * CLOCK_SECOND)
+#define TSCH_CONF_MAX_KEEPALIVE_TIMEOUT (60 * CLOCK_SECOND)
 #define TSCH_CONF_MAC_MIN_BE 2
 #define TSCH_CONF_MAC_MAX_BE 7
+
+/* Deterministic 6TiSCH minimal schedule on association regardless of EB channel offset */
+#define TSCH_SCHEDULE_CONF_WITH_6TISCH_MINIMAL 1
+#define TSCH_CONF_INIT_SCHEDULE_FROM_EB 0
 
 #ifndef SYNC_SCHEME
 #define SYNC_SCHEME 1
@@ -59,9 +68,10 @@
 #define ONE_SF_PERIOD (SF_LENGTH * (CLOCK_SECOND / 100))
 #define BASE_SF_PERIOD (EB_MULT * ONE_SF_PERIOD)
 
-/* Identical neutral boot defaults for all schemes; protocol-specific rates are applied in node.c */
-#define TSCH_CONF_EB_PERIOD (2 * BASE_SF_PERIOD)
-#define TSCH_CONF_MAX_EB_PERIOD (32 * BASE_SF_PERIOD)
+/* Keep 1 fresh EB available in n_eb for all schemes; per-slotframe Bernoulli probability
+   in node.c (State 2 LINK_TYPE_ADVERTISING/_ONLY vs State 3 LINK_TYPE_NORMAL) regulates exact EB rate */
+#define TSCH_CONF_EB_PERIOD ONE_SF_PERIOD
+#define TSCH_CONF_MAX_EB_PERIOD (4 * ONE_SF_PERIOD)
 #define TSCH_CONF_CHANNEL_SCAN_DURATION ONE_SF_PERIOD
 
 #define TSCH_PACKET_CONF_EB_WITH_SLOTFRAME_AND_LINK 1
