@@ -16,7 +16,7 @@
 #define RPL_CONF_DIO_REDUNDANCY 3                   /* RFC 6206 k=3 prevents DIO storms on cell (0,0) */
 #define RPL_CONF_DIS_START_DELAY 3600               /* Passive DIO reception; prevent 450-node DIS storm */
 #define RPL_CONF_DIS_INTERVAL (3600 * CLOCK_SECOND)
-#define RPL_CONF_DAO_DELAY (120 * CLOCK_SECOND)     /* Stagger upward DAOs on single cell (0,0) */
+#define RPL_CONF_DAO_DELAY (4 * CLOCK_SECOND)       /* Contiki-NG stock 4 s DAO delay (removes 100 s/hop stall) */
 #define RPL_CONF_WITH_DAO_ACK 0
 #define RPL_CONF_PROBING_INTERVAL (300 * CLOCK_SECOND)
 #define UIP_CONF_ND6_SEND_NS 0
@@ -75,6 +75,11 @@
 
 #ifndef N_NODES
 #define N_NODES 500
+#endif
+
+/* Prevent delayed pledges from scanning before arrival_timer fires */
+#if POISSON_ARRIVAL || LATE_JOINER
+#define TSCH_CONF_AUTOSTART 0
 #endif
 
 #define TSCH_SCHEDULE_CONF_DEFAULT_LENGTH SF_LENGTH
