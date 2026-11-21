@@ -328,9 +328,27 @@ apply_scheme_schedule(void)
       } else if(SYNC_SCHEME == 34) {
         cand_off = (uint8_t)(random_rand() % NUM_CHANNELS);
       } else if(SYNC_SCHEME == 38) {
-        /* Tier-aware start: begin candidate sweep at upstream parent's sub-band */
-        uint8_t start_off = (get_preferred_parent_tier() & 1U) ? 1U : 0U;
-        cand_off = (uint8_t)((start_off + step) % NUM_CHANNELS);
+        /* Tier-aware start: sweep upstream parent's parity sub-band first via tsch_join_priority,
+           then cover the remaining offsets as a full permutation of {0..NUM_CHANNELS-1} */
+        uint8_t half = (uint8_t)(NUM_CHANNELS / 2);
+        uint8_t p_t = (tsch_join_priority > 0) ? (uint8_t)(tsch_join_priority - 1) : 0;
+        if(p_t == 0) {
+          if(step == 0) {
+            cand_off = 0;
+          } else if(step <= half) {
+            cand_off = (uint8_t)((2U * (step - 1U) + 1U) % NUM_CHANNELS);
+          } else {
+            cand_off = (uint8_t)((2U * (step - half)) % NUM_CHANNELS);
+          }
+        } else if((p_t & 1U) == 1U) {
+          cand_off = (step < half)
+                       ? (uint8_t)((1U + 2U * step) % NUM_CHANNELS)
+                       : (uint8_t)((2U * (step - half)) % NUM_CHANNELS);
+        } else {
+          cand_off = (step < half)
+                       ? (uint8_t)((2U * step) % NUM_CHANNELS)
+                       : (uint8_t)((1U + 2U * (step - half)) % NUM_CHANNELS);
+        }
       }
       set_slot0_link(cand_off, LINK_OPTION_RX | LINK_OPTION_SHARED | LINK_OPTION_TIME_KEEPING, LINK_TYPE_NORMAL);
     } else {
@@ -361,10 +379,10 @@ apply_scheme_schedule(void)
       enable_keepalive = 1;
       break;
 
-    case 37: /* DEFINE (Mixed 80% DEFINE / 20% Stock RFC 8180) */
+    case 37: /* DEFINE (Mixed 80% DEFINE / 20% Stock RFC 8180 Default 26S) */
       if(is_mixed_stock) {
         ch_offset_u = 0;
-        tx_prob_u8 = (uint8_t)(255 / EB_MULT);
+        tx_prob_u8 = 10; /* Stock RFC 8180 / Contiki-NG default 26S (matches case 12) */
         enable_keepalive = 0;
       } else {
         update_rank_tier(1, 1, 0, 0);

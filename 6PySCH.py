@@ -393,9 +393,19 @@ def simulate_seed(
                     elif scheme_id == 34:
                         cand_off = rng.randrange(n_ch)
                     elif scheme_id == 38:
+                        half = max(1, n_ch // 2)
                         p_t = cached_tier[parent[u]] if parent[u] > 0 else 0
-                        start_off = 1 if (p_t & 1) else 0
-                        cand_off = (start_off + step) % n_ch
+                        if p_t == 0:
+                            if step == 0:
+                                cand_off = 0
+                            elif step <= half:
+                                cand_off = (2 * (step - 1) + 1) % n_ch
+                            else:
+                                cand_off = (2 * (step - half)) % n_ch
+                        elif (p_t & 1) == 1:
+                            cand_off = ((1 + 2 * step) % n_ch) if (step < half) else ((2 * (step - half)) % n_ch)
+                        else:
+                            cand_off = ((2 * step) % n_ch) if (step < half) else ((1 + 2 * (step - half)) % n_ch)
                     else:
                         cand_off = step
                     rx_off_node[u] = cand_off
@@ -427,7 +437,7 @@ def simulate_seed(
             elif scheme_id == 37:
                 if is_mixed_stock:
                     ch_offset[u] = 0
-                    tx_prob_u8 = 255 // eb_mult
+                    tx_prob_u8 = 10
                 else:
                     update_rank_tier_node(u, True, True, False, False)
                     tx_prob_u8 = compute_adapt_q_u8(u, asn_now, join_asn[u], phi[u], nbrs, n_ch, sf_len, True, True, True)

@@ -480,7 +480,7 @@ def run_sweep_group(scheme_id, group_id, seeds=None):
         if scheme_id <= 8:
             run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=None, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=16)
         run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=100, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=16)
-        if n in (100, 500):
+        if n in (100, 500) and scheme_id in (1, 8, 13):
             run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=100, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=64)
         # Also evaluate Mixed 80/20 RFC 8180 coexistence at N=200 inside its fast group-2 job
         if scheme_id == 37 and group_id == 2:
