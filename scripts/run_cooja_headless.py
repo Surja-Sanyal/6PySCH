@@ -22,10 +22,10 @@ SCHEME_MAP = {
     3:  "r",                  # EDBA-SA
     4:  "d",                  # ECV-SA
     5:  "a_2",                # ATP: 2
-    6:  "t",                  # TRGB
+    6:  "t",                  # TRGB (1S)
     7:  "c",                  # CSMJ
     8:  "s",                  # EASE
-    9:  "pair",               # Pairing [19]
+    9:  "pair",               # Pairing (1S) [19]
     10: "ebmc",               # EBMC (1S) [20]
     11: "mc_4s",              # 6TiSCH-MC (Tuned 4S)
     12: "mc_26s",             # 6TiSCH-MC (Default 26S)
@@ -44,7 +44,7 @@ SCHEME_MAP = {
     25: "define_noka",        # DEFINE (No Keepalive)
     26: "define_mrm",         # DEFINE (Lossy UDGM 85% PRR)
     27: "define_rev",         # DEFINE (Reversed Sweep Order)
-    28: "define_poisson",     # DEFINE (Poisson Arrivals)
+    28: "define_poisson",     # DEFINE (Poisson Arrivals, lambda=5/s)
     29: "ebmc_2s_poisson",    # EBMC (Tuned 2S, Poisson Arrivals)
     30: "ease_poisson",       # EASE (Poisson Arrivals)
     31: "ebmc_mrm",           # EBMC (1S, Lossy UDGM 85% PRR)
@@ -53,6 +53,11 @@ SCHEME_MAP = {
     34: "define_rand",        # DEFINE (Random Sweep Order)
     35: "define_late",        # DEFINE (Late Joiners, 20% at t=150s)
     36: "define_fail",        # DEFINE (10% Relay Failure at t=120s)
+    37: "define_mixed",       # DEFINE (Mixed 80% DEFINE / 20% Stock RFC 8180)
+    38: "define_tierstart",   # DEFINE (Tier-Aware Sweep Start)
+    39: "pair_2s",            # Pairing (Tuned 2S)
+    40: "trgb_2s",            # TRGB (Tuned 2S)
+    41: "define_hoptier_mrm", # DEFINE (Hop-Count Tier, Lossy UDGM 85% PRR)
 }
 
 
@@ -106,7 +111,7 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
     poisson_flag = 1 if scheme_id in (28, 29, 30) else 0
     late_flag = 1 if scheme_id == 35 else 0
     fail_flag = 1 if scheme_id == 36 else 0
-    rx_success = 0.85 if scheme_id in (26, 31, 32) else 1.0
+    rx_success = 0.85 if scheme_id in (26, 31, 32, 41) else 1.0
     n_pledges = len(coords) - 1
 
     make_vars = (
@@ -281,6 +286,8 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         scan_rx_us_map = {}
         node_parent = {1: 0}
         node_tier = {1: 0}
+        node_ch_off = {1: 0}
+        node_first_tx_sf = {1: 0}
         node_nbrs = {}
         node_en_records = {}
         sf_ch_senders = {}
@@ -316,6 +323,9 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
                 ch_off = int(mt.group(3))
                 node_tier[nid] = int(mt.group(4))
                 node_parent[nid] = int(mt.group(5))
+                node_ch_off[nid] = ch_off
+                if nid not in node_first_tx_sf or sf_idx < node_first_tx_sf[nid]:
+                    node_first_tx_sf[nid] = sf_idx
                 sub_cnt = int(mt.group(6))
                 sf_ch_senders.setdefault((sf_idx, ch_off), []).append((nid, sub_cnt))
                 continue
@@ -419,6 +429,30 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         total_active_sfs = sum(node_active_sfs.values())
         eb_rate = float(sum(node_eb_cnt.values())) / float(max(1, total_active_sfs))
 
+        # Real neighbor-table occupancy percentiles (pledges) & M1 wavefront inputs at join time
+        nbr_vals = np.array([v for nid, v in node_nbrs.items() if nid != 1], dtype=float)
+        nbr_p50 = float(np.percentile(nbr_vals, 50)) if len(nbr_vals) > 0 else 0.0
+        nbr_p95 = float(np.percentile(nbr_vals, 95)) if len(nbr_vals) > 0 else 0.0
+        nbr_p99 = float(np.percentile(nbr_vals, 99)) if len(nbr_vals) > 0 else 0.0
+
+        tier_vals = [node_tier[nid] for nid in joined_asns if nid in node_tier]
+        mean_tier = float(np.mean(tier_vals)) if tier_vals else 0.0
+
+        c_i_samples, co_off_samples = [], []
+        for nid in joined_asns:
+            j_sf = (join_times_us[nid] // (sf_len * 10000)) if nid in join_times_us else (joined_asns[nid] // sf_len)
+            off_counts = {}
+            for nb in adj.get(nid, set()):
+                if nb in node_ch_off and (nb == node_parent.get(nid, -1) or node_first_tx_sf.get(nb, 10**9) <= j_sf):
+                    off = node_ch_off[nb]
+                    off_counts[off] = off_counts.get(off, 0) + 1
+            if off_counts:
+                c_i_samples.append(len(off_counts))
+                co_off_samples.extend(off_counts.values())
+
+        mean_c_i = float(np.mean(c_i_samples)) if c_i_samples else 0.0
+        mean_co_off = float(np.mean(co_off_samples)) if co_off_samples else 0.0
+
         with open(stat_file, "a") as fp:
             row = [
                 n_nodes, area, n_ch, sf_len, eb_mult,
@@ -426,7 +460,9 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
                 coll_total, slot0_equiv_tx_ticks, scan_rx_ticks_32k,
                 seed, round(eb_rate, 4), coll_tree, coll_sib, coll_cross,
                 round(mean_switches, 4), round(mean_retries, 4),
-                slot0_tx_only_ticks, round(t_end_s, 4), round(mean_sync_asn, 2)
+                slot0_tx_only_ticks, round(t_end_s, 4), round(mean_sync_asn, 2),
+                round(nbr_p50, 2), round(nbr_p95, 2), round(nbr_p99, 2),
+                round(mean_c_i, 4), round(mean_tier, 4), round(mean_co_off, 4)
             ]
             fp.write(",".join(map(str, row)) + ",\n")
 
@@ -446,6 +482,9 @@ def run_sweep_group(scheme_id, group_id, seeds=None):
         run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=100, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=16)
         if n in (100, 500):
             run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=100, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=64)
+        # Also evaluate Mixed 80/20 RFC 8180 coexistence at N=200 inside its fast group-2 job
+        if scheme_id == 37 and group_id == 2:
+            run_cooja_and_parse(scheme_id=37, n_nodes=200, area=100, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=16)
     elif group_id == 11:
         for ch in (2, 4, 6, 8):
             run_cooja_and_parse(scheme_id=scheme_id, n_nodes=200, area=None, n_ch=ch, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=16)

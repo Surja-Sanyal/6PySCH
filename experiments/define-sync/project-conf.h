@@ -12,7 +12,7 @@
 /* Standard RFC 6206 / RFC 6550 / RFC 6775 dense-network settings
    (applied identically across DEFINE and all comparison/ablation schemes) */
 #define RPL_CONF_DIO_INTERVAL_MIN 11                /* 2^11 ms = 2.048 s */
-#define RPL_CONF_DIO_INTERVAL_DOUBLINGS 2           /* I_max = 2^13 ms = 8.192 s (bounded by k=3) */
+#define RPL_CONF_DIO_INTERVAL_DOUBLINGS 3           /* I_max = 2^14 ms = 16.384 s (avoids cell-0 DIO deadlock) */
 #define RPL_CONF_DIO_REDUNDANCY 3                   /* RFC 6206 k=3 prevents DIO storms on cell (0,0) */
 #define RPL_CONF_DIS_START_DELAY 3600               /* Passive DIO reception; prevent 450-node DIS storm */
 #define RPL_CONF_DIS_INTERVAL (3600 * CLOCK_SECOND)

@@ -110,6 +110,21 @@ get_preferred_parent_tier(void)
   return 0;
 }
 
+static uint16_t
+get_preferred_parent_etx(void)
+{
+  if(curr_instance.used && curr_instance.dag.preferred_parent != NULL) {
+    const linkaddr_t *ll = (const linkaddr_t *)rpl_neighbor_get_lladdr(curr_instance.dag.preferred_parent);
+    if(ll != NULL) {
+      const struct link_stats *stats = link_stats_from_lladdr(ll);
+      if(stats != NULL && stats->etx > 0) {
+        return stats->etx;
+      }
+    }
+  }
+  return 128; /* ETX = 1.0 in Contiki-NG (128 = LINK_STATS_ETX_DIVISOR) */
+}
+
 static int
 get_active_neighbor_count(void)
 {
@@ -139,9 +154,7 @@ get_unicast_tx_retries(void)
 /* Tier-Parity Sub-Band ASSIGN mapper:
    - Root (tier == 0): base offset 0
    - Odd rank tiers (tier % 2 == 1): odd offsets {1, 3, ..., C-1}
-   - Even non-root tiers (tier >= 2, even): non-zero even offsets {2, 4, ..., C-2}
-   Guarantees disjoint sub-bands across adjacent tiers, 100% channel utilization
-   even in 2-hop topologies, and zero non-root EBs on base cell (0,0) for C >= 4. */
+   - Even non-root tiers (tier >= 2, even): non-zero even offsets {2, 4, ..., C-2} */
 static uint8_t
 compute_subband_offset(uint16_t id, uint8_t tier)
 {
@@ -232,16 +245,29 @@ compute_adapt_q_u8(uint32_t asn_now, int nbrs, uint8_t use_age, uint8_t use_dens
 }
 
 static void
-update_rank_tier(uint8_t do_immediate_refresh, uint8_t do_guard, uint8_t use_id_hash)
+update_rank_tier(uint8_t do_immediate_refresh, uint8_t do_guard, uint8_t use_id_hash, uint8_t use_hop_only)
 {
   uint16_t rank_inc = RPL_CONF_MIN_HOPRANKINC;
   uint8_t p_tier = get_preferred_parent_tier();
   uint16_t cur_rank = (curr_instance.used && curr_instance.dag.rank >= rank_inc)
                         ? (uint16_t)curr_instance.dag.rank
                         : (uint16_t)((p_tier + 2) * rank_inc);
-  uint16_t diff_rank = (cur_rank > prev_rank) ? (cur_rank - prev_rank) : (prev_rank - cur_rank);
 
-  if((do_immediate_refresh && parent_switched_flag) || prev_rank == 0 || diff_rank >= (rank_inc / 2)) {
+  /* Scheme 41 ablation: strip local ETX excess and update tier only on parent switch (ETX-unaware hop tier) */
+  if(use_hop_only && node_id != 1) {
+    uint16_t p_etx = get_preferred_parent_etx();
+    uint16_t etx_excess = (p_etx > 128) ? (uint16_t)((p_etx - 128) * 2U) : 0;
+    if(cur_rank > rank_inc + etx_excess) {
+      cur_rank -= etx_excess;
+    }
+  }
+
+  uint16_t diff_rank = (cur_rank > prev_rank) ? (cur_rank - prev_rank) : (prev_rank - cur_rank);
+  uint8_t should_update = use_hop_only
+                            ? (parent_switched_flag || prev_rank == 0)
+                            : ((do_immediate_refresh && parent_switched_flag) || prev_rank == 0 || diff_rank >= (rank_inc / 2));
+
+  if(should_update) {
     uint16_t raw_h = (cur_rank >= rank_inc) ? ((cur_rank / rank_inc) - 1) : 0;
     cached_h_u = (raw_h > 255) ? 255 : (uint8_t)raw_h;
     if(node_id == 1) {
@@ -281,13 +307,19 @@ apply_scheme_schedule(void)
   uint32_t asn_now = tsch_current_asn.ls4b;
   uint32_t sf_num = (uint32_t)(asn_now / SF_LENGTH);
 
+  /* Scheme 37: 20% of pledges run stock RFC 8180 6TiSCH-MC (1S) */
+  uint8_t is_mixed_stock = (SYNC_SCHEME == 37 && node_id != 1 && (node_id % 5) == 0);
+
   /* Algorithm 1: Between TSCH sync and RPL DODAG join, keep (0,0) open on 3 of 4 slotframes
      for fast DIO reception and probe candidate EB offsets every 4th slotframe during a bounded window */
   if(!NETSTACK_ROUTING.node_has_joined() && node_id != 1) {
     uint32_t max_win_sfs = (NUM_CHANNELS * 2 < 16) ? (uint32_t)(NUM_CHANNELS * 2) : 16UL;
     uint32_t w_eb = max_win_sfs * (uint32_t)SF_LENGTH;
     uint8_t in_sweep_win = (sync_asn > 0 && asn_now >= sync_asn && (asn_now - sync_asn) < w_eb);
-    uint8_t uses_alg1 = (SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28) || (SYNC_SCHEME >= 33 && SYNC_SCHEME <= 36));
+    uint8_t uses_alg1 = !is_mixed_stock && (
+      SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28) ||
+      (SYNC_SCHEME >= 33 && SYNC_SCHEME <= 38) || SYNC_SCHEME == 41
+    );
     if(in_sweep_win && (sf_num & 3) == 3 && uses_alg1) {
       uint8_t step = (uint8_t)((sf_num >> 2) % NUM_CHANNELS);
       uint8_t cand_off = step;
@@ -295,6 +327,10 @@ apply_scheme_schedule(void)
         cand_off = (uint8_t)((NUM_CHANNELS - 1) - step);
       } else if(SYNC_SCHEME == 34) {
         cand_off = (uint8_t)(random_rand() % NUM_CHANNELS);
+      } else if(SYNC_SCHEME == 38) {
+        /* Tier-aware start: begin candidate sweep at upstream parent's sub-band */
+        uint8_t start_off = (get_preferred_parent_tier() & 1U) ? 1U : 0U;
+        cand_off = (uint8_t)((start_off + step) % NUM_CHANNELS);
       }
       set_slot0_link(cand_off, LINK_OPTION_RX | LINK_OPTION_SHARED | LINK_OPTION_TIME_KEEPING, LINK_TYPE_NORMAL);
     } else {
@@ -314,24 +350,43 @@ apply_scheme_schedule(void)
   switch(SYNC_SCHEME) {
     case 1:  /* DEFINE (Full) */
     case 26: /* DEFINE (Lossy UDGM 85% PRR) */
-    case 27: /* DEFINE (Reversed Sweep Order - same ASSIGN map, reversed Alg. 1 sweep) */
+    case 27: /* DEFINE (Reversed Sweep Order) */
     case 28: /* DEFINE (Poisson Arrivals) */
     case 34: /* DEFINE (Random Sweep Order) */
     case 35: /* DEFINE (Late Joiners into Steady Network) */
     case 36: /* DEFINE (Parent Failure & Rejoin) */
-      update_rank_tier(1, 1, 0);
+    case 38: /* DEFINE (Tier-Aware Sweep Start) */
+      update_rank_tier(1, 1, 0, 0);
+      tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
+      enable_keepalive = 1;
+      break;
+
+    case 37: /* DEFINE (Mixed 80% DEFINE / 20% Stock RFC 8180) */
+      if(is_mixed_stock) {
+        ch_offset_u = 0;
+        tx_prob_u8 = (uint8_t)(255 / EB_MULT);
+        enable_keepalive = 0;
+      } else {
+        update_rank_tier(1, 1, 0, 0);
+        tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
+        enable_keepalive = 1;
+      }
+      break;
+
+    case 41: /* DEFINE (Hop-Count Tier, Lossy UDGM 85% PRR) */
+      update_rank_tier(1, 1, 0, 1);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       enable_keepalive = 1;
       break;
 
     case 25: /* DEFINE (No Keepalive) */
-      update_rank_tier(1, 1, 0);
+      update_rank_tier(1, 1, 0, 0);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       enable_keepalive = 0;
       break;
 
     case 14: /* EASE + ADAPT (Grafted, Alg. 1+KA) */
-      update_rank_tier(0, 0, 1);
+      update_rank_tier(0, 0, 1, 0);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       enable_keepalive = 1;
       ka_allow_zero = 1;
@@ -347,32 +402,32 @@ apply_scheme_schedule(void)
 
     case 16: /* ID-Hash + Guard + ADAPT (Control) */
     case 33: /* ID-Hash + Guard + ADAPT (Reversed Sweep) */
-      update_rank_tier(1, 1, 1);
+      update_rank_tier(1, 1, 1, 0);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       enable_keepalive = 1;
       ka_allow_zero = 1;
       break;
 
     case 17: /* ASSIGN (Hysteresis Only, No Refresh/Guard, 1S) */
-      update_rank_tier(0, 0, 0);
+      update_rank_tier(0, 0, 0, 0);
       tx_prob_u8 = (uint8_t)(216 / EB_MULT);
       enable_keepalive = 1;
       break;
 
     case 18: /* ASSIGN (Refresh Only, No Guard, 1S) */
-      update_rank_tier(1, 0, 0);
+      update_rank_tier(1, 0, 0, 0);
       tx_prob_u8 = (uint8_t)(216 / EB_MULT);
       enable_keepalive = 1;
       break;
 
     case 19: /* ASSIGN (Guard Only, Hysteresis, 1S) */
-      update_rank_tier(0, 1, 0);
+      update_rank_tier(0, 1, 0, 0);
       tx_prob_u8 = (uint8_t)(216 / EB_MULT);
       enable_keepalive = 1;
       break;
 
     case 20: /* ASSIGN-Only (Refresh + Guard, 1S) */
-      update_rank_tier(1, 1, 0);
+      update_rank_tier(1, 1, 0, 0);
       tx_prob_u8 = (uint8_t)(216 / EB_MULT);
       enable_keepalive = 1;
       break;
@@ -428,13 +483,15 @@ apply_scheme_schedule(void)
       subslots = ATP_SUBSLOTS;
       break;
 
-    case 6:  /* TRGB */
+    case 6:  /* TRGB (1S) */
+    case 40: /* TRGB (Tuned 2S) */
     {
       uint8_t rgb_phase = (uint8_t)(sf_num % 3);
       uint8_t sub_band = (NUM_CHANNELS >= 3) ? (NUM_CHANNELS / 3) : 1;
       ch_offset_u = (uint8_t)((rgb_phase * sub_band + (node_id % sub_band)) % NUM_CHANNELS);
       uint8_t base_p = (rgb_phase == 0) ? 204 : ((rgb_phase == 1) ? 102 : 26);
-      tx_prob_u8 = (uint8_t)(base_p / EB_MULT);
+      uint8_t eff_mult = (SYNC_SCHEME == 40) ? 2 : EB_MULT;
+      tx_prob_u8 = (uint8_t)(base_p / eff_mult);
       break;
     }
 
@@ -456,11 +513,12 @@ apply_scheme_schedule(void)
       break;
     }
 
-    case 9:  /* Pairing [19] */
+    case 9:  /* Pairing (1S) [19] */
+    case 39: /* Pairing (Tuned 2S) */
     {
       uint8_t base_pair = (uint8_t)((node_id / 2) % (NUM_CHANNELS / 2));
       ch_offset_u = (sf_num & 1) ? (uint8_t)(base_pair + (NUM_CHANNELS / 2)) : base_pair;
-      tx_prob_u8 = (uint8_t)(255 / EB_MULT);
+      tx_prob_u8 = (SYNC_SCHEME == 39) ? 128 : (uint8_t)(255 / EB_MULT);
       break;
     }
 
@@ -526,7 +584,6 @@ apply_scheme_schedule(void)
   if((slot_callbacks % 10) == 0 || slot_callbacks == 1) {
     uint32_t slot0_tx_us = (uint32_t)((slot0_tx_acc_ticks * 1000000ULL) / ENERGEST_SECOND);
 #if SYNC_SCHEME == 5 && ATP_SUBSLOTS > 1
-    /* Account for physical 250-kbps airtime (1600 us per 50-byte EB) of the (s-1) extra ATP subslot EBs */
     slot0_tx_us += (uint32_t)((eb_tx_counter / ATP_SUBSLOTS) * (uint32_t)(ATP_SUBSLOTS - 1) * 1600UL);
 #endif
     uint32_t slot0_rx_us = (uint32_t)((slot0_rx_acc_ticks * 1000000ULL) / ENERGEST_SECOND);
@@ -540,8 +597,7 @@ apply_scheme_schedule(void)
 static void
 slotframe_callback(void *ptr)
 {
-  /* Accumulate Energest TX/RX strictly during associated slotframes so post-desync
-     continuous rescanning never contaminates associated shared-slot control energy */
+  /* Accumulate Energest TX/RX strictly during associated slotframes */
   if(join_logged && !node_failed) {
     energest_flush();
     uint64_t cur_tx = energest_type_time(ENERGEST_TYPE_TRANSMIT);
