@@ -45,8 +45,8 @@
     vs ATP: 2 (n=5)                : p_raw=0.375, p_Holm=1
     vs EDBA-SA (n=5)               : p_raw=0.0625, p_Holm=0.694887
     vs ECV-SA (n=5)                : p_raw=0.0625, p_Holm=0.694887
-    vs Pairing (n=5)               : p_raw=0.0625, p_Holm=0.694887
-    vs TRGB (n=5)                  : p_raw=0.343028, p_Holm=1
+    vs Pairing (1S) (n=5)          : p_raw=0.0625, p_Holm=0.694887
+    vs TRGB (1S) (n=5)             : p_raw=0.343028, p_Holm=1
     vs EBMC (1S) (n=5)             : p_raw=0.0625, p_Holm=0.694887
     vs EBMC (Tuned 2S) (n=5)       : p_raw=0.0625, p_Holm=0.694887
     vs EASE (n=5)                  : p_raw=0.0579073, p_Holm=0.694887
@@ -58,8 +58,8 @@
     vs ATP: 2 (n=5)                : p_raw=1, p_Holm=1
     vs EDBA-SA (n=5)               : p_raw=0.0625, p_Holm=0.75
     vs ECV-SA (n=5)                : p_raw=0.3125, p_Holm=0.75
-    vs Pairing (n=5)               : p_raw=0.0625, p_Holm=0.75
-    vs TRGB (n=5)                  : p_raw=0.125, p_Holm=0.75
+    vs Pairing (1S) (n=5)          : p_raw=0.0625, p_Holm=0.75
+    vs TRGB (1S) (n=5)             : p_raw=0.125, p_Holm=0.75
     vs EBMC (1S) (n=5)             : p_raw=0.0625, p_Holm=0.75
     vs EBMC (Tuned 2S) (n=5)       : p_raw=0.125, p_Holm=0.75
     vs EASE (n=5)                  : p_raw=0.0625, p_Holm=0.75
@@ -71,8 +71,8 @@
     vs ATP: 2 (n=5)                : p_raw=0.0625, p_Holm=0.75
     vs EDBA-SA (n=5)               : p_raw=0.0625, p_Holm=0.75
     vs ECV-SA (n=5)                : p_raw=0.0625, p_Holm=0.75
-    vs Pairing (n=5)               : p_raw=0.0625, p_Holm=0.75
-    vs TRGB (n=5)                  : p_raw=0.8125, p_Holm=0.8125
+    vs Pairing (1S) (n=5)          : p_raw=0.0625, p_Holm=0.75
+    vs TRGB (1S) (n=5)             : p_raw=0.8125, p_Holm=0.8125
     vs EBMC (1S) (n=5)             : p_raw=0.0625, p_Holm=0.75
     vs EBMC (Tuned 2S) (n=5)       : p_raw=0.0625, p_Holm=0.75
     vs EASE (n=5)                  : p_raw=0.0625, p_Holm=0.75
@@ -122,8 +122,8 @@
     vs ATP: 2 (n=5)                : p_raw=0.125, p_Holm=0.875
     vs EDBA-SA (n=5)               : p_raw=0.1875, p_Holm=0.9375
     vs ECV-SA (n=5)                : p_raw=0.0579073, p_Holm=0.694887
-    vs Pairing (n=5)               : p_raw=1, p_Holm=1
-    vs TRGB (n=5)                  : p_raw=1, p_Holm=1
+    vs Pairing (1S) (n=5)          : p_raw=1, p_Holm=1
+    vs TRGB (1S) (n=5)             : p_raw=1, p_Holm=1
     vs EBMC (1S) (n=5)             : p_raw=0.125, p_Holm=0.875
     vs EBMC (Tuned 2S) (n=5)       : p_raw=0.1875, p_Holm=0.9375
     vs EASE (n=5)                  : p_raw=0.4375, p_Holm=1
@@ -135,8 +135,8 @@
     vs ATP: 2 (n=5)                : p_raw=0.125, p_Holm=0.75
     vs EDBA-SA (n=5)               : p_raw=0.0625, p_Holm=0.75
     vs ECV-SA (n=5)                : p_raw=0.0625, p_Holm=0.75
-    vs Pairing (n=5)               : p_raw=1, p_Holm=1
-    vs TRGB (n=5)                  : p_raw=0.625, p_Holm=1
+    vs Pairing (1S) (n=5)          : p_raw=1, p_Holm=1
+    vs TRGB (1S) (n=5)             : p_raw=0.625, p_Holm=1
     vs EBMC (1S) (n=5)             : p_raw=0.0625, p_Holm=0.75
     vs EBMC (Tuned 2S) (n=5)       : p_raw=0.125, p_Holm=0.75
     vs EASE (n=5)                  : p_raw=0.125, p_Holm=0.75
@@ -148,8 +148,8 @@
     vs ATP: 2 (n=5)                : p_raw=0.4375, p_Holm=1
     vs EDBA-SA (n=5)               : p_raw=0.125, p_Holm=0.875
     vs ECV-SA (n=5)                : p_raw=0.625, p_Holm=1
-    vs Pairing (n=5)               : p_raw=1, p_Holm=1
-    vs TRGB (n=5)                  : p_raw=1, p_Holm=1
+    vs Pairing (1S) (n=5)          : p_raw=1, p_Holm=1
+    vs TRGB (1S) (n=5)             : p_raw=1, p_Holm=1
     vs EBMC (1S) (n=5)             : p_raw=0.0625, p_Holm=0.75
     vs EBMC (Tuned 2S) (n=5)       : p_raw=0.0625, p_Holm=0.75
     vs EASE (n=5)                  : p_raw=0.0625, p_Holm=0.75
