@@ -42,13 +42,13 @@ SCHEME_MAP = {
     23: "adapt_nophase",      # ADAPT (No Phase)
     24: "adapt_full",         # ADAPT-Only (Full)
     25: "define_noka",        # DEFINE (No Keepalive)
-    26: "define_mrm",         # DEFINE (Lossy MRM 85% PRR)
+    26: "define_mrm",         # DEFINE (Lossy UDGM 85% PRR)
     27: "define_rev",         # DEFINE (Reversed Sweep Order)
     28: "define_poisson",     # DEFINE (Poisson Arrivals)
     29: "ebmc_2s_poisson",    # EBMC (Tuned 2S, Poisson Arrivals)
     30: "ease_poisson",       # EASE (Poisson Arrivals)
-    31: "ebmc_mrm",           # EBMC (1S, Lossy MRM 85% PRR)
-    32: "ease_mrm",           # EASE (Lossy MRM 85% PRR)
+    31: "ebmc_mrm",           # EBMC (1S, Lossy UDGM 85% PRR)
+    32: "ease_mrm",           # EASE (Lossy UDGM 85% PRR)
     33: "idhash_rev",         # ID-Hash + Guard + ADAPT (Reversed Sweep)
     34: "define_rand",        # DEFINE (Random Sweep Order)
     35: "define_late",        # DEFINE (Late Joiners, 20% at t=150s)
@@ -102,13 +102,13 @@ def build_interference_adj(coords, tx_range=50.0):
     return adj
 
 
-def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=300000, nbr_cap=32):
+def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=300000, nbr_cap=16):
     poisson_flag = 1 if scheme_id in (28, 29, 30) else 0
     late_flag = 1 if scheme_id == 35 else 0
     fail_flag = 1 if scheme_id == 36 else 0
     rx_success = 0.85 if scheme_id in (26, 31, 32) else 1.0
-
     n_pledges = len(coords) - 1
+
     make_vars = (
         f"SYNC_SCHEME={scheme_id} SF_LENGTH={sf_len} NUM_CHANNELS={n_ch} "
         f"EB_MULT={eb_mult} NBR_CAP={nbr_cap} POISSON_ARRIVAL={poisson_flag} "
@@ -210,14 +210,14 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
         f.write(csc_content)
 
 
-def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb_mult=1, seeds=None, nbr_cap=32):
+def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb_mult=1, seeds=None, nbr_cap=16):
     os.makedirs(STAT_DIR, exist_ok=True)
     if area is None:
         area = compute_constant_density_area(n_nodes)
 
     stat_key = SCHEME_MAP[scheme_id]
     suffix = "_64nbr" if nbr_cap == 64 else ""
-    stat_file = os.path.join(STAT_DIR, f"_{stat_key}_cooja_stats_.txt") if nbr_cap == 32 else os.path.join(STAT_DIR, f"_{stat_key}{suffix}_cooja_stats_.txt")
+    stat_file = os.path.join(STAT_DIR, f"_{stat_key}{suffix}_cooja_stats_.txt")
 
     if seeds is None:
         seeds = list(range(1, 6))
@@ -430,7 +430,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
             ]
             fp.write(",".join(map(str, row)) + ",\n")
 
-    if all_join_seconds and area == 100 and n_nodes in (100, 500) and n_ch == 16 and sf_len == 61 and eb_mult == 1 and nbr_cap == 32:
+    if all_join_seconds and area == 100 and n_nodes in (100, 500) and n_ch == 16 and sf_len == 61 and eb_mult == 1 and nbr_cap == 16:
         cdf_csv = os.path.join(STAT_DIR, f"join_times_N{n_nodes}_scheme{scheme_id}.csv")
         np.savetxt(cdf_csv, np.sort(np.array(all_join_seconds)), fmt="%.4f", delimiter=",")
 
@@ -442,25 +442,25 @@ def run_sweep_group(scheme_id, group_id, seeds=None):
         n = group_id * 50
         # Only main sweep schemes (1..8) are plotted on Fig. 7 (constant-density area=None)
         if scheme_id <= 8:
-            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=None, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=32)
-        run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=100, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=32)
+            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=None, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=16)
+        run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=100, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=16)
         if n in (100, 500):
             run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=100, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=64)
     elif group_id == 11:
         for ch in (2, 4, 6, 8):
-            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=200, area=None, n_ch=ch, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=32)
+            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=200, area=None, n_ch=ch, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=16)
     elif group_id == 12:
         for ch in (10, 12, 14):
-            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=200, area=None, n_ch=ch, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=32)
+            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=200, area=None, n_ch=ch, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=16)
     elif group_id == 13:
         for sf in (23, 31, 41, 53):
-            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=200, area=None, n_ch=16, sf_len=sf, eb_mult=1, seeds=seeds, nbr_cap=32)
+            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=200, area=None, n_ch=16, sf_len=sf, eb_mult=1, seeds=seeds, nbr_cap=16)
     elif group_id == 14:
         for sf in (73, 83, 97, 101):
-            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=200, area=None, n_ch=16, sf_len=sf, eb_mult=1, seeds=seeds, nbr_cap=32)
+            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=200, area=None, n_ch=16, sf_len=sf, eb_mult=1, seeds=seeds, nbr_cap=16)
     elif group_id == 15:
         for eb in (2, 3, 4):
-            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=200, area=None, n_ch=16, sf_len=61, eb_mult=eb, seeds=seeds, nbr_cap=32)
+            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=200, area=None, n_ch=16, sf_len=61, eb_mult=eb, seeds=seeds, nbr_cap=16)
     elif group_id == 16:
         for eb in (5, 6, 7, 8):
-            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=200, area=None, n_ch=16, sf_len=61, eb_mult=eb, seeds=seeds, nbr_cap=32)
+            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=200, area=None, n_ch=16, sf_len=61, eb_mult=eb, seeds=seeds, nbr_cap=16)

@@ -12,11 +12,11 @@
 /* Standard RFC 6206 / RFC 6550 / RFC 6775 dense-network settings
    (applied identically across DEFINE and all comparison/ablation schemes) */
 #define RPL_CONF_DIO_INTERVAL_MIN 11                /* 2^11 ms = 2.048 s */
-#define RPL_CONF_DIO_INTERVAL_DOUBLINGS 3           /* I_max = 2^14 ms = 16.384 s */
+#define RPL_CONF_DIO_INTERVAL_DOUBLINGS 2           /* I_max = 2^13 ms = 8.192 s (bounded by k=3) */
 #define RPL_CONF_DIO_REDUNDANCY 3                   /* RFC 6206 k=3 prevents DIO storms on cell (0,0) */
 #define RPL_CONF_DIS_START_DELAY 3600               /* Passive DIO reception; prevent 450-node DIS storm */
 #define RPL_CONF_DIS_INTERVAL (3600 * CLOCK_SECOND)
-#define RPL_CONF_DAO_DELAY (4 * CLOCK_SECOND)       /* Contiki-NG stock 4 s DAO delay (removes 100 s/hop stall) */
+#define RPL_CONF_DAO_DELAY (120 * CLOCK_SECOND)     /* Stagger upward DAOs away from formation wave */
 #define RPL_CONF_WITH_DAO_ACK 0
 #define RPL_CONF_PROBING_INTERVAL (300 * CLOCK_SECOND)
 #define UIP_CONF_ND6_SEND_NS 0
@@ -58,7 +58,7 @@
 #endif
 
 #ifndef NBR_CAP
-#define NBR_CAP 32
+#define NBR_CAP 16
 #endif
 
 #ifndef POISSON_ARRIVAL

@@ -89,7 +89,7 @@ TABLE_IV_ROWS_SPEC = [
     ("define_poisson",     "\\texttt{DEFINE} (Poisson Arrivals, $\\lambda=5\\text{ /s}$)"),
     ("define_late",        "\\texttt{DEFINE} (Late Joiners, 20\\% at $t=150\\text{ s}$)"),
     ("define_fail",        "\\texttt{DEFINE} (10\\% Relay Failure at $t=120\\text{ s}$)"),
-    ("p",                  "\\textbf{\\texttt{DEFINE} (Full, 32-Entry Table)}"),
+    ("p",                  "\\textbf{\\texttt{DEFINE} (Full, 16-Entry Table)}"),
 ]
 
 
@@ -559,7 +559,7 @@ def plot_sweep(
         if is_rx_energy:
             return m["scan_j_per_pledge"] * y_scale
         if is_total_energy:
-            return m["shared_mj_per_joined"] * y_scale
+            return m["e300_j_per_node"] * y_scale
         if is_duty:
             return m["formation_duty_pct"]
         return arr[:, col_idx] * y_scale
@@ -679,22 +679,22 @@ def generate_latex_table_iv_and_stats():
         return f"${fmt % m} \\pm {fmt % se}$"
 
     def format_row(prefix, label, n_target, is_64_only=False):
-        d32 = load_raw_data(prefix)
-        m32 = select_benchmark_rows(d32, n_target)
-        if len(m32) == 0:
+        d16 = load_raw_data(prefix)
+        m16 = select_benchmark_rows(d16, n_target)
+        if len(m16) == 0:
             return None
 
-        met = compute_per_seed_metrics(m32)
+        met = compute_per_seed_metrics(m16)
         m_join_100s = met["m_join_s"] / 100.0
         p95_100s = met["p95_s"] / 100.0
-        coll_10k = m32[:, 9] * 1e-4
-        eb_rate = float(np.mean(m32[:, 13])) if m32.shape[1] > 13 else 1.0
+        coll_10k = m16[:, 9] * 1e-4
+        eb_rate = float(np.mean(m16[:, 13])) if m16.shape[1] > 13 else 1.0
 
         if is_64_only:
-            c32_str = "---"
+            c16_str = "---"
             c64_str = ms_str(met["comp_pct"], "%.1f")
         else:
-            c32_str = ms_str(met["comp_pct"], "%.1f")
+            c16_str = ms_str(met["comp_pct"], "%.1f")
             d64 = load_raw_data(f"{prefix}_64nbr")
             m64 = select_benchmark_rows(d64, n_target)
             if len(m64) > 0:
@@ -705,21 +705,21 @@ def generate_latex_table_iv_and_stats():
 
         return (
             f"{label} & ${eb_rate:.2f}$ & {ms_str(met['rmst_300_s'], '%.1f')} & {ms_str(m_join_100s)} & "
-            f"{ms_str(p95_100s)} & {ms_str(coll_10k)} & {c32_str} & "
+            f"{ms_str(p95_100s)} & {ms_str(coll_10k)} & {c16_str} & "
             f"{c64_str} & {ms_str(met['shared_mj_per_joined'], '%.1f')} & {ms_str(met['e300_j_per_node'], '%.2f')} \\\\"
         )
 
     out_lines = [
         "% Auto-generated strictly from multi-seed Cooja logs in Statistics/",
-        "% Exact Cooja horizon T_max = 300 s (sim_timeout_ms = 300000); no 3600-s extrapolation",
-        "% Columns: Scheme | EB Rate | RMST_300 (s) | Mean m_join (x10^4 sl) | P95 (x10^4 sl) | Collisions (x10^4) | 32-Nbr Comp (%) | 64-Entry Comp (%) | e_shared (mJ/node) | Boot+Strand E_300 (J/node)"
+        "% Exact Cooja horizon T_max = 300 s (sim_timeout_ms = 300000); default NBR_CAP = 16 vs. 64",
+        "% Columns: Scheme | EB Rate | RMST_300 (s) | Mean m_join (x10^4 sl) | P95 (x10^4 sl) | Collisions (x10^4) | 16-Nbr Comp (%) | 64-Entry Comp (%) | e_shared (mJ/node) | Boot+Strand E_300 (J/node)"
     ]
     csv_lines = [
         "n_nodes,prefix,nbr_cap,seed,eb_rate,rmst_300_s,m_join_s,m_sync_s,post_sync_s,p95_s,"
         "collisions,coll_tree,coll_sib,coll_cross,switches,comp_pct,"
         "tx_mj_per_joined,scan_j_per_pledge,e_shared_mj_per_joined,slot0_duty_pct,formation_duty_pct,e300_j_per_node,t_end_s"
     ]
-    report_lines = [f"=== DEFINE Multi-Seed Statistical & Provenance Report (T_max = {HORIZON_S:.0f} s) ==="]
+    report_lines = [f"=== DEFINE Multi-Seed Statistical & Provenance Report (T_max = {HORIZON_S:.0f} s, default NBR_CAP = 16) ==="]
 
     for n_val in (100, 500):
         out_lines.append(f"% --- N = {n_val} ---")
@@ -728,7 +728,7 @@ def generate_latex_table_iv_and_stats():
             line = format_row(prefix, lbl, n_val)
             if line:
                 out_lines.append(line)
-            for cap_val, pfx in ((32, prefix), (64, f"{prefix}_64nbr")):
+            for cap_val, pfx in ((16, prefix), (64, f"{prefix}_64nbr")):
                 rows = select_benchmark_rows(load_raw_data(pfx), n_val)
                 if len(rows) == 0:
                     continue
@@ -749,7 +749,7 @@ def generate_latex_table_iv_and_stats():
                         f"{met['shared_mj_per_joined'][idx]:.3f},{met['slot0_duty_pct'][idx]:.4f},"
                         f"{met['formation_duty_pct'][idx]:.3f},{met['e300_j_per_node'][idx]:.3f},{met['t_end_s'][idx]:.2f}"
                     )
-                if cap_val == 32:
+                if cap_val == 16:
                     c_tree_m = float(np.mean(rows[:, 14])) if rows.shape[1] > 14 else 0.0
                     c_sib_m = float(np.mean(rows[:, 15])) if rows.shape[1] > 15 else 0.0
                     c_cross_m = float(np.mean(rows[:, 16])) if rows.shape[1] > 16 else 0.0
@@ -830,10 +830,10 @@ if __name__ == "__main__":
     plot_sweep(0, f_nodes, 9, dens_lbl, coll_lbl,  "Fig10c_density_collisions.png",  "densitywise_average_collisions.pdf", x_scale=0.01, y_scale=1e-4, mode="densitywise")
     plot_sweep(0, f_nodes, 5, dens_lbl, comp_lbl,  "Fig10d_density_completion.png",  "densitywise_dodag_completion.pdf", x_scale=0.01, is_pct=True, mode="densitywise")
 
-    plot_sweep(0, f_nodes, 19, dens_lbl, r"Tx radio energy (mJ/node)",    "Fig11a_tx_energy.png",    "densitywise_transmission_energy.pdf", x_scale=0.01, is_tx_energy=True, mode="densitywise")
-    plot_sweep(0, f_nodes, 11, dens_lbl, r"Rx scan energy (J/node)",      "Fig11b_rx_energy.png",    "densitywise_reception_energy.pdf", x_scale=0.01, is_rx_energy=True, mode="densitywise")
-    plot_sweep(0, f_nodes, 10, dens_lbl, r"Shared-slot energy (mJ/node)", "Fig11c_total_energy.png", "densitywise_total_energy.pdf", x_scale=0.01, is_total_energy=True, mode="densitywise")
-    plot_sweep(0, f_nodes, 10, dens_lbl, r"Formation duty cycle ($\%$)",  "Fig11d_duty_cycle.png",   "densitywise_duty_cycle.pdf", x_scale=0.01, is_duty=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 19, dens_lbl, r"Tx radio energy (mJ/node)",               "Fig11a_tx_energy.png",    "densitywise_transmission_energy.pdf", x_scale=0.01, is_tx_energy=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 11, dens_lbl, r"Rx scan energy (J/node)",                 "Fig11b_rx_energy.png",    "densitywise_reception_energy.pdf", x_scale=0.01, is_rx_energy=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 10, dens_lbl, r"Total formation energy $E_{300}$ (J/node)", "Fig11c_total_energy.png", "densitywise_total_energy.pdf", x_scale=0.01, is_total_energy=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 10, dens_lbl, r"Formation duty cycle ($\%$)",             "Fig11d_duty_cycle.png",   "densitywise_duty_cycle.pdf", x_scale=0.01, is_duty=True, mode="densitywise")
 
     f_ch = {0: 200, 3: 61, 4: 1}
     plot_sweep(2, f_ch, 6, "Total channels", rmst_lbl,  "Fig12a_ch_total_sync_time.png", "channelwise_total_time.pdf", is_rmst=True)
