@@ -17,9 +17,13 @@ os.makedirs(STAT_DIR, exist_ok=True)
 os.makedirs(PLOTS_DIR, exist_ok=True)
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
-# Zolertia Z1 radio energy conversion constants (V_sup = 3.0 V, I_tx = 17.4 mA, I_rx = 18.8 mA, 32,768 Hz Energest)
+# Zolertia Z1 radio energy & exact Cooja horizon constants
+# (V_sup = 3.0 V, I_tx = 17.4 mA, I_rx = 18.8 mA, 32,768 Hz Energest, T_max = 300 s)
 TX_MJ_PER_TICK = 3.0 * 17.4 / 32768.0    # mJ per 32,768-Hz TX-equivalent tick
 RX_J_PER_TICK  = 3.0 * 0.0188 / 32768.0  # J  per 32,768-Hz RX tick
+HORIZON_S      = 300.0                   # Exact Cooja simulation horizon (matches sim_timeout_ms = 300000)
+SCAN_POWER_W   = 3.0 * 0.0188            # 0.0564 W continuous RX scan power
+STRAND_J       = SCAN_POWER_W * HORIZON_S  # 16.92 J per unjoined node over 300 s
 
 MECHANISMS = {
     "p":   ("DEFINE",     "#0044cc", "o", "-",                2.5, "#0044cc"),
@@ -33,6 +37,60 @@ MECHANISMS = {
 }
 
 ORDER = ["e", "c", "a_2", "r", "d", "t", "s", "p"]
+
+TABLE_IV_BASELINES = [
+    ("e",       "6TiSCH-MC (1S)"),
+    ("mc_4s",   "6TiSCH-MC (Tuned 4S)"),
+    ("mc_26s",  "6TiSCH-MC (Default 26S)"),
+    ("c",       "CSMJ"),
+    ("a_2",     "ATP: 2"),
+    ("r",       "EDBA-SA"),
+    ("d",       "ECV-SA"),
+    ("pair",    "Pairing"),
+    ("t",       "TRGB"),
+    ("ebmc",    "EBMC (1S)"),
+    ("ebmc_2s", "EBMC (Tuned 2S)"),
+    ("s",       "EASE"),
+]
+
+TABLE_IV_ROWS_SPEC = [
+    ("e",                  "6TiSCH-MC ($I_{eb}=1S$) \\cite{vilajosana2017minimal}"),
+    ("mc_4s",              "6TiSCH-MC (Tuned $I_{eb}=4S$)"),
+    ("mc_26s",             "6TiSCH-MC (Default $I_{eb}=26S$)"),
+    ("c",                  "CSMJ \\cite{chang2024csmj}"),
+    ("a_2",                "ATP: 2 \\cite{karalis2018atp}"),
+    ("r",                  "EDBA-SA \\cite{khoufi2018enhanced}"),
+    ("d",                  "ECV-SA \\cite{vogli2018fast}"),
+    ("pair",               "Pairing \\cite{pairing2024icufn}"),
+    ("t",                  "TRGB \\cite{kalita2023trgb}"),
+    ("ebmc",               "EBMC ($I_{eb}=1S$) \\cite{park2025ebmc}"),
+    ("ebmc_2s",            "EBMC (Tuned $I_{eb}=2S$)"),
+    ("s",                  "EASE \\cite{kalita2025ease}"),
+    ("ease_adapt",         "EASE + \\texttt{ADAPT} (Grafted, Alg.\\ 1+KA)"),
+    ("ebmc_adapt",         "EBMC + \\texttt{ADAPT} (Grafted, Alg.\\ 1+KA)"),
+    ("idhash_guard_adapt", "ID-Hash + Guard + \\texttt{ADAPT} (Control)"),
+    ("idhash_rev",         "ID-Hash + Guard + \\texttt{ADAPT} (Reversed Sweep)"),
+    ("assign_hyst",        "\\texttt{ASSIGN} (Hysteresis Only, No Refresh/Guard)"),
+    ("assign_ref",         "\\texttt{ASSIGN} (Refresh Only, No Guard, $1S$)"),
+    ("assign_guard",       "\\texttt{ASSIGN} (Guard Only, Hysteresis, $1S$)"),
+    ("assign_both",        "\\texttt{ASSIGN}-Only (Refresh + Guard, $1S$)"),
+    ("adapt_age",          "\\texttt{ADAPT} (Age Only, Cell 0)"),
+    ("adapt_dens",         "\\texttt{ADAPT} (Density Only, Cell 0)"),
+    ("adapt_nophase",      "\\texttt{ADAPT} (No Phase $\\phi_u=0$, Cell 0)"),
+    ("adapt_full",         "\\texttt{ADAPT}-Only (Full, Cell 0)"),
+    ("define_noka",        "\\texttt{DEFINE} (No Keepalive)"),
+    ("ebmc_mrm",           "EBMC ($I_{eb}=1S$, Lossy UDGM 85\\% PRR)"),
+    ("ease_mrm",           "EASE (Lossy UDGM 85\\% PRR)"),
+    ("define_mrm",         "\\texttt{DEFINE} (Lossy UDGM 85\\% PRR)"),
+    ("define_rev",         "\\texttt{DEFINE} (Reversed Sweep Order)"),
+    ("define_rand",        "\\texttt{DEFINE} (Random Sweep Order)"),
+    ("ebmc_2s_poisson",    "EBMC (Tuned $2S$, Poisson Arrivals, $\\lambda=5\\text{ /s}$)"),
+    ("ease_poisson",       "EASE (Poisson Arrivals, $\\lambda=5\\text{ /s}$)"),
+    ("define_poisson",     "\\texttt{DEFINE} (Poisson Arrivals, $\\lambda=5\\text{ /s}$)"),
+    ("define_late",        "\\texttt{DEFINE} (Late Joiners, 20\\% at $t=150\\text{ s}$)"),
+    ("define_fail",        "\\texttt{DEFINE} (10\\% Relay Failure at $t=120\\text{ s}$)"),
+    ("p",                  "\\textbf{\\texttt{DEFINE} (Full, 32-Entry Table)}"),
+]
 
 
 def save_standalone_legend():
@@ -329,51 +387,36 @@ def generate_markov_figure6_from_simulation():
 
 
 def generate_wavefront_cdf_plot():
+    """Plot empirical Cooja joining-time CDFs directly from real multi-seed per-node timestamps."""
     csv_100 = os.path.join(STAT_DIR, "join_times_N100_scheme1.csv")
     csv_500 = os.path.join(STAT_DIR, "join_times_N500_scheme1.csv")
     if not (os.path.exists(csv_100) and os.path.exists(csv_500)):
         return
 
-    emp_100 = np.sort(np.loadtxt(csv_100, delimiter=","))
-    emp_500 = np.sort(np.loadtxt(csv_500, delimiter=","))
+    emp_100 = np.sort(np.atleast_1d(np.loadtxt(csv_100, delimiter=",")))
+    emp_500 = np.sort(np.atleast_1d(np.loadtxt(csv_500, delimiter=",")))
+    if len(emp_100) == 0 or len(emp_500) == 0:
+        return
+
+    y_100 = np.linspace(0.0, 100.0, len(emp_100))
+    y_500 = np.linspace(0.0, 100.0, len(emp_500))
+    step_100 = max(1, len(emp_100) // 18)
+    step_500 = max(1, len(emp_500) // 18)
 
     fig, ax = plt.subplots(figsize=(5.5, 3.85), dpi=300)
-    t_grid = np.linspace(0.0, max(25.0, float(np.percentile(emp_500, 99))), 250)
-    sf_dur = 0.61
+    ax.plot(emp_100, y_100, color="#0044cc", linestyle="-", linewidth=2.2,
+            marker="o", markevery=step_100, markersize=5.8, markerfacecolor="white", markeredgewidth=1.5,
+            label=f"DEFINE Cooja CDF ($N=100$, med={np.median(emp_100):.1f}s, $P_{{95}}$={np.percentile(emp_100, 95):.1f}s)")
+    ax.plot(emp_500, y_500, color="#d92121", linestyle="--", linewidth=2.2,
+            marker="s", markevery=step_500, markersize=5.8, markerfacecolor="white", markeredgewidth=1.5,
+            label=f"DEFINE Cooja CDF ($N=500$, med={np.median(emp_500):.1f}s, $P_{{95}}$={np.percentile(emp_500, 95):.1f}s)")
 
-    p1_100, p2_100, offset_100 = 0.222, 0.162, 0.91
-    cdf_pred_100 = np.array([
-        0.0 if t <= offset_100 else (
-            1.0 - ((1.0 - p1_100) ** ((t - offset_100) / sf_dur))
-            if (t - offset_100) / sf_dur <= 6.0
-            else 1.0 - (((1.0 - p1_100) ** 6.0) * ((1.0 - p2_100) ** (((t - offset_100) / sf_dur) - 6.0)))
-        )
-        for t in t_grid
-    ])
-
-    p1_500, p2_500, offset_500, w_depth = 0.178, 0.135, 2.40, 1.46
-    cdf_pred_500 = np.array([
-        0.0 if t <= offset_500 else (
-            1.0 - ((1.0 - p1_500) ** ((t - offset_500) / (sf_dur * w_depth)))
-            if (t - offset_500) / (sf_dur * w_depth) <= 6.0
-            else 1.0 - (((1.0 - p1_500) ** 6.0) * ((1.0 - p2_500) ** (((t - offset_500) / (sf_dur * w_depth)) - 6.0)))
-        )
-        for t in t_grid
-    ])
-
-    step_100 = max(1, len(emp_100) // 20)
-    step_500 = max(1, len(emp_500) // 20)
-    ax.plot(t_grid, cdf_pred_100 * 100.0, color="#0044cc", linestyle="-", linewidth=2.2, label="Predicted CDF (DEFINE, $N=100$)")
-    ax.plot(emp_100[::step_100], np.linspace(0, 100, len(emp_100))[::step_100], color="#0044cc", linestyle="None", marker="o", markersize=6.0, markerfacecolor="white", markeredgewidth=1.6, label="Measured Cooja CDF ($N=100$)")
-    ax.plot(t_grid, cdf_pred_500 * 100.0, color="#d92121", linestyle="--", linewidth=2.2, label="Predicted CDF (DEFINE, $N=500$)")
-    ax.plot(emp_500[::step_500], np.linspace(0, 100, len(emp_500))[::step_500], color="#d92121", linestyle="None", marker="s", markersize=6.0, markerfacecolor="white", markeredgewidth=1.6, label="Measured Cooja CDF ($N=500$)")
-
-    ax.set_xlabel("Joining time (s)", fontsize=12.0)
-    ax.set_ylabel("Cumulative completion CDF (%)", fontsize=12.0)
+    ax.set_xlabel("Conditional joining time (s)", fontsize=12.0)
+    ax.set_ylabel("Cumulative joined-node CDF (%)", fontsize=12.0)
     ax.set_ylim(0.0, 102.0)
     ax.tick_params(labelsize=11)
     ax.grid(True, linestyle="--", alpha=0.45)
-    ax.legend(loc="lower right", fontsize=10.0, frameon=True, edgecolor="#333333")
+    ax.legend(loc="lower right", fontsize=9.2, frameon=True, edgecolor="#333333")
     fig.tight_layout()
     fig.savefig(os.path.join(PLOTS_DIR, "Fig_wavefront_cdf_comparison.png"), dpi=300, bbox_inches="tight")
     fig.savefig(os.path.join(RESULTS_DIR, "wavefront_cdf_comparison.pdf"), format="pdf", bbox_inches="tight")
@@ -382,8 +425,8 @@ def generate_wavefront_cdf_plot():
 
 def load_raw_data(prefix):
     """
-    Load Cooja rows from Statistics/. Prefer 21-column multi-seed rows generated by
-    run_cooja_headless.py over 19-column or legacy 12-column files.
+    Load Cooja rows from Statistics/. Prefer 22-column multi-seed rows generated by
+    run_cooja_headless.py over 21-, 19-, or legacy 12-column files.
     """
     candidates = (
         glob.glob(os.path.join(STAT_DIR, f"_{prefix}_cooja_stats_.txt"))
@@ -391,17 +434,19 @@ def load_raw_data(prefix):
     )
     best_data = None
     for path in candidates:
-        rows_21, rows_19, rows_12 = [], [], []
+        rows_22, rows_21, rows_19, rows_12 = [], [], [], []
         with open(path, "r") as f:
             for line in f:
                 parts = [float(p.strip()) for p in line.strip().split(",") if p.strip()]
-                if len(parts) >= 21:
+                if len(parts) >= 22:
+                    rows_22.append(parts[:22])
+                elif len(parts) >= 21:
                     rows_21.append(parts[:21])
                 elif len(parts) >= 19:
                     rows_19.append(parts[:19])
                 elif len(parts) >= 12:
                     rows_12.append(parts[:12])
-        rows = rows_21 if rows_21 else (rows_19 if rows_19 else rows_12)
+        rows = rows_22 if rows_22 else (rows_21 if rows_21 else (rows_19 if rows_19 else rows_12))
         if not rows:
             continue
         data = np.array(rows, dtype=float)
@@ -416,27 +461,52 @@ def load_raw_data(prefix):
     return best_data
 
 
-def compute_per_seed_energy_metrics(sub):
-    """Compute exact per-seed normalized energy and duty-cycle arrays from raw Cooja rows."""
+def compute_per_seed_metrics(sub):
+    """Compute exact per-seed normalized time, energy, and separated duty-cycle arrays over HORIZON_S = 300 s."""
     n_nodes = np.maximum(1.0, sub[:, 0])
     n_joined_with_root = np.maximum(1.0, sub[:, 5] + 1.0)
     c_frac = np.clip(sub[:, 5] / n_nodes, 0.0, 1.0)
+    comp_pct = c_frac * 100.0
     m_join_s = sub[:, 8] * 0.01  # ASN slots (10 ms) -> seconds
+    p95_s = sub[:, 7] * 0.01
+    m_sync_s = (sub[:, 21] * 0.01) if sub.shape[1] > 21 else m_join_s
+    post_sync_s = np.maximum(0.0, m_join_s - m_sync_s)
+
+    # Exact restricted mean synchronization time over the 300-s Cooja horizon (in seconds)
+    rmst_300_s = c_frac * m_join_s + (1.0 - c_frac) * HORIZON_S
 
     tx_ticks = sub[:, 19] if sub.shape[1] > 19 else sub[:, 10]
     tx_mj_per_joined = (tx_ticks * TX_MJ_PER_TICK) / n_joined_with_root
     shared_mj_per_joined = (sub[:, 10] * TX_MJ_PER_TICK) / n_joined_with_root
     scan_j_per_pledge = (sub[:, 11] * RX_J_PER_TICK) / n_nodes
 
-    # Exact 1-hr bootstrap + stranding energy (J/node):
-    # joined nodes pay scan RX + per-joined-node shared-slot control energy; stranded nodes pay 3600s * 56.4mW = 203.04 J
-    e3600_j_per_node = c_frac * (0.0564 * m_join_s + shared_mj_per_joined * 1e-3) + (1.0 - c_frac) * 203.04
+    # Exact 300-s bootstrap + stranding energy (J/node):
+    # joined nodes pay scan RX + per-joined-node shared-slot control energy; stranded nodes pay 300s * 56.4mW = 16.92 J
+    e300_j_per_node = c_frac * (SCAN_POWER_W * m_join_s + shared_mj_per_joined * 1e-3) + (1.0 - c_frac) * STRAND_J
 
     t_end_s = sub[:, 20] if sub.shape[1] > 20 else np.maximum(1.0, sub[:, 6])
-    active_s = (sub[:, 10] + sub[:, 11]) / 32768.0
-    duty_pct = np.minimum(100.0, (active_s / np.maximum(1.0, (n_nodes + 1.0) * np.maximum(1.0, t_end_s))) * 100.0)
+    slot0_active_s = sub[:, 10] / 32768.0
+    total_active_s = (sub[:, 10] + sub[:, 11]) / 32768.0
 
-    return tx_mj_per_joined, scan_j_per_pledge, shared_mj_per_joined, duty_pct, e3600_j_per_node
+    # Separate associated-node slot-0 duty from scanning-inclusive formation duty (closes F2)
+    slot0_duty_pct = np.minimum(100.0, (slot0_active_s / np.maximum(1.0, n_joined_with_root * np.maximum(1.0, t_end_s))) * 100.0)
+    formation_duty_pct = np.minimum(100.0, (total_active_s / np.maximum(1.0, (n_nodes + 1.0) * np.maximum(1.0, t_end_s))) * 100.0)
+
+    return {
+        "comp_pct": comp_pct,
+        "m_join_s": m_join_s,
+        "m_sync_s": m_sync_s,
+        "post_sync_s": post_sync_s,
+        "p95_s": p95_s,
+        "rmst_300_s": rmst_300_s,
+        "tx_mj_per_joined": tx_mj_per_joined,
+        "scan_j_per_pledge": scan_j_per_pledge,
+        "shared_mj_per_joined": shared_mj_per_joined,
+        "slot0_duty_pct": slot0_duty_pct,
+        "formation_duty_pct": formation_duty_pct,
+        "e300_j_per_node": e300_j_per_node,
+        "t_end_s": t_end_s,
+    }
 
 
 def get_metric_series_with_se(prefix, x_col, fixed_filters, metric_fn, mode="default"):
@@ -475,26 +545,23 @@ def get_metric_series_with_se(prefix, x_col, fixed_filters, metric_fn, mode="def
 
 def plot_sweep(
     x_col, fixed_filters, col_idx, xlabel, ylabel, png_name, pdf_name=None,
-    x_scale=1.0, y_scale=1.0, is_pct=False, is_tx_energy=False, is_rx_energy=False,
-    is_total_energy=False, is_duty=False, is_tsync=False, mode="default"
+    x_scale=1.0, y_scale=1.0, is_pct=False, is_rmst=False, is_tx_energy=False,
+    is_rx_energy=False, is_total_energy=False, is_duty=False, mode="default"
 ):
     def metric_fn(arr):
+        m = compute_per_seed_metrics(arr)
         if is_pct:
-            return np.minimum(100.0, (arr[:, 5] / np.maximum(1.0, arr[:, 0])) * 100.0)
-        if is_tsync:
-            return arr[:, 6] * y_scale
+            return m["comp_pct"]
+        if is_rmst:
+            return m["rmst_300_s"]
         if is_tx_energy:
-            tx_mj, _, _, _, _ = compute_per_seed_energy_metrics(arr)
-            return tx_mj * y_scale
+            return m["tx_mj_per_joined"] * y_scale
         if is_rx_energy:
-            _, scan_j, _, _, _ = compute_per_seed_energy_metrics(arr)
-            return scan_j * y_scale
+            return m["scan_j_per_pledge"] * y_scale
         if is_total_energy:
-            _, _, shared_mj, _, _ = compute_per_seed_energy_metrics(arr)
-            return shared_mj * y_scale
+            return m["shared_mj_per_joined"] * y_scale
         if is_duty:
-            _, _, _, duty_pct, _ = compute_per_seed_energy_metrics(arr)
-            return duty_pct
+            return m["formation_duty_pct"]
         return arr[:, col_idx] * y_scale
 
     fig, ax = plt.subplots(figsize=(5.5, 3.85), dpi=300)
@@ -543,44 +610,73 @@ def plot_sweep(
     plt.close(fig)
 
 
-def generate_latex_table_iv():
-    table_rows_spec = [
-        ("e",                  "6TiSCH-MC ($I_{eb}=1S$) \\cite{vilajosana2017minimal}"),
-        ("mc_4s",              "6TiSCH-MC (Tuned $I_{eb}=4S$)"),
-        ("mc_26s",             "6TiSCH-MC (Default $I_{eb}=26S$)"),
-        ("c",                  "CSMJ \\cite{chang2024csmj}"),
-        ("a_2",                "ATP: 2 \\cite{karalis2018atp}"),
-        ("r",                  "EDBA-SA \\cite{khoufi2018enhanced}"),
-        ("d",                  "ECV-SA \\cite{vogli2018fast}"),
-        ("pair",               "Pairing \\cite{pairing2024icufn}"),
-        ("t",                  "TRGB \\cite{kalita2023trgb}"),
-        ("ebmc",               "EBMC ($I_{eb}=1S$) \\cite{park2025ebmc}"),
-        ("ebmc_2s",            "EBMC (Tuned $I_{eb}=2S$)"),
-        ("s",                  "EASE \\cite{kalita2025ease}"),
-        ("ease_adapt",         "EASE + \\texttt{ADAPT} (Grafted, Alg.\\ 1+KA)"),
-        ("ebmc_adapt",         "EBMC + \\texttt{ADAPT} (Grafted, Alg.\\ 1+KA)"),
-        ("idhash_guard_adapt", "ID-Hash + Guard + \\texttt{ADAPT} (Control)"),
-        ("assign_hyst",        "\\texttt{ASSIGN} (Hysteresis Only, No Refresh/Guard)"),
-        ("assign_ref",         "\\texttt{ASSIGN} (Refresh Only, No Guard, $1S$)"),
-        ("assign_guard",       "\\texttt{ASSIGN} (Guard Only, Hysteresis, $1S$)"),
-        ("assign_both",        "\\texttt{ASSIGN}-Only (Refresh + Guard, $1S$)"),
-        ("adapt_age",          "\\texttt{ADAPT} (Age Only, Cell 0)"),
-        ("adapt_dens",         "\\texttt{ADAPT} (Density Only, Cell 0)"),
-        ("adapt_nophase",      "\\texttt{ADAPT} (No Phase $\\phi_u=0$, Cell 0)"),
-        ("adapt_full",         "\\texttt{ADAPT}-Only (Full, Cell 0)"),
-        ("define_noka",        "\\texttt{DEFINE} (No Keepalive)"),
-        ("define_mrm",         "\\texttt{DEFINE} (Lossy MRM 85\\% PRR)"),
-        ("define_rev",         "\\texttt{DEFINE} (Reversed Sweep Order)"),
-        ("define_poisson",     "\\texttt{DEFINE} (Poisson Arrivals, $\\lambda=5\\text{ /s}$)"),
-        ("p",                  "\\textbf{\\texttt{DEFINE} (Full, 32-Entry Table)}"),
-    ]
+def select_benchmark_rows(data, n_target):
+    if data is None:
+        return np.empty((0, 12))
+    base_mask = (data[:, 0] == n_target) & (data[:, 2] == 16) & (data[:, 3] == 61) & (data[:, 4] == 1)
+    m = data[base_mask & (data[:, 1] == 100)]
+    return m if len(m) > 0 else data[base_mask]
 
-    def select_benchmark_rows(data, n_target):
-        if data is None:
-            return np.empty((0, 12))
-        base_mask = (data[:, 0] == n_target) & (data[:, 2] == 16) & (data[:, 3] == 61) & (data[:, 4] == 1)
-        m = data[base_mask & (data[:, 1] == 100)]
-        return m if len(m) > 0 else data[base_mask]
+
+def wilcoxon_two_sided(x, y):
+    """Exact (n<=14) or continuity-corrected normal approx two-sided paired Wilcoxon signed-rank p-value (no scipy)."""
+    d = np.asarray(x, dtype=float) - np.asarray(y, dtype=float)
+    d = d[np.abs(d) > 1e-12]
+    n = len(d)
+    if n == 0:
+        return 1.0
+    abs_d = np.abs(d)
+    order = np.argsort(abs_d)
+    ranks = np.empty(n, dtype=float)
+    i = 0
+    tie_corr = 0.0
+    while i < n:
+        j = i
+        while j + 1 < n and abs(abs_d[order[j + 1]] - abs_d[order[i]]) <= 1e-12:
+            j += 1
+        avg_rank = 0.5 * (i + j) + 1.0
+        for k in range(i, j + 1):
+            ranks[order[k]] = avg_rank
+        t = j - i + 1
+        if t > 1:
+            tie_corr += t * (t * t - 1)
+        i = j + 1
+    w_stat = min(float(np.sum(ranks[d > 0])), float(np.sum(ranks[d < 0])))
+    if n <= 14 and tie_corr == 0.0:
+        max_s = n * (n + 1) // 2
+        dp = np.zeros(max_s + 1, dtype=np.int64)
+        dp[0] = 1
+        for r in range(1, n + 1):
+            dp[r:] += dp[:-r].copy()
+        tail = int(np.sum(dp[:int(round(w_stat)) + 1]))
+        return min(1.0, 2.0 * tail / float(1 << n))
+    mean_w = n * (n + 1) / 4.0
+    var_w = (n * (n + 1) * (2 * n + 1) - 0.5 * tie_corr) / 24.0
+    if var_w <= 0.0:
+        return 1.0
+    z = max(0.0, (abs(w_stat - mean_w) - 0.5) / math.sqrt(var_w))
+    return min(1.0, math.erfc(z / math.sqrt(2.0)))
+
+
+def holm_adjust(pvals):
+    m = len(pvals)
+    if m == 0:
+        return np.array([], dtype=float)
+    idx = np.argsort(pvals)
+    adj = np.empty(m, dtype=float)
+    running_max = 0.0
+    for rank, orig_i in enumerate(idx):
+        val = min(1.0, pvals[orig_i] * (m - rank))
+        running_max = max(running_max, val)
+        adj[orig_i] = running_max
+    return adj
+
+
+def generate_latex_table_iv_and_stats():
+    def ms_str(arr, fmt="%.2f"):
+        m = float(np.mean(arr))
+        se = float(np.std(arr, ddof=1) / math.sqrt(len(arr))) if len(arr) > 1 else 0.0
+        return f"${fmt % m} \\pm {fmt % se}$"
 
     def format_row(prefix, label, n_target, is_64_only=False):
         d32 = load_raw_data(prefix)
@@ -588,24 +684,17 @@ def generate_latex_table_iv():
         if len(m32) == 0:
             return None
 
-        comp_val = (m32[:, 5] / float(n_target)) * 100.0
-        m_join_100s = m32[:, 8] * 1e-4
-        p95_100s = m32[:, 7] * 1e-4
+        met = compute_per_seed_metrics(m32)
+        m_join_100s = met["m_join_s"] / 100.0
+        p95_100s = met["p95_s"] / 100.0
         coll_10k = m32[:, 9] * 1e-4
-        _, _, shared_mj, _, e3600 = compute_per_seed_energy_metrics(m32)
-        rmst_ks = ((comp_val / 100.0) * (m_join_100s * 100.0) + (1.0 - comp_val / 100.0) * 3600.0) / 1000.0
         eb_rate = float(np.mean(m32[:, 13])) if m32.shape[1] > 13 else 1.0
-
-        def ms_str(arr, fmt="%.2f"):
-            m = float(np.mean(arr))
-            se = float(np.std(arr, ddof=1) / math.sqrt(len(arr))) if len(arr) > 1 else 0.0
-            return f"${fmt % m} \\pm {fmt % se}$"
 
         if is_64_only:
             c32_str = "---"
-            c64_str = ms_str(comp_val, "%.1f")
+            c64_str = ms_str(met["comp_pct"], "%.1f")
         else:
-            c32_str = ms_str(comp_val, "%.1f")
+            c32_str = ms_str(met["comp_pct"], "%.1f")
             d64 = load_raw_data(f"{prefix}_64nbr")
             m64 = select_benchmark_rows(d64, n_target)
             if len(m64) > 0:
@@ -615,68 +704,151 @@ def generate_latex_table_iv():
                 c64_str = "---"
 
         return (
-            f"{label} & ${eb_rate:.2f}$ & {ms_str(rmst_ks)} & {ms_str(m_join_100s)} & "
+            f"{label} & ${eb_rate:.2f}$ & {ms_str(met['rmst_300_s'], '%.1f')} & {ms_str(m_join_100s)} & "
             f"{ms_str(p95_100s)} & {ms_str(coll_10k)} & {c32_str} & "
-            f"{c64_str} & {ms_str(shared_mj, '%.1f')} & {ms_str(e3600, '%.1f')} \\\\"
+            f"{c64_str} & {ms_str(met['shared_mj_per_joined'], '%.1f')} & {ms_str(met['e300_j_per_node'], '%.2f')} \\\\"
         )
 
     out_lines = [
         "% Auto-generated strictly from multi-seed Cooja logs in Statistics/",
-        "% Shared-Slot Energy column reports per-joined-node energy e_shared (mJ/node)"
+        "% Exact Cooja horizon T_max = 300 s (sim_timeout_ms = 300000); no 3600-s extrapolation",
+        "% Columns: Scheme | EB Rate | RMST_300 (s) | Mean m_join (x10^4 sl) | P95 (x10^4 sl) | Collisions (x10^4) | 32-Nbr Comp (%) | 64-Entry Comp (%) | e_shared (mJ/node) | Boot+Strand E_300 (J/node)"
     ]
+    csv_lines = [
+        "n_nodes,prefix,nbr_cap,seed,eb_rate,rmst_300_s,m_join_s,m_sync_s,post_sync_s,p95_s,"
+        "collisions,coll_tree,coll_sib,coll_cross,switches,comp_pct,"
+        "tx_mj_per_joined,scan_j_per_pledge,e_shared_mj_per_joined,slot0_duty_pct,formation_duty_pct,e300_j_per_node,t_end_s"
+    ]
+    report_lines = [f"=== DEFINE Multi-Seed Statistical & Provenance Report (T_max = {HORIZON_S:.0f} s) ==="]
+
     for n_val in (100, 500):
         out_lines.append(f"% --- N = {n_val} ---")
-        for prefix, lbl in table_rows_spec:
+        report_lines.append(f"\n--- Benchmark N = {n_val} (100m x 100m, C=16, S=61, I_eb=1S, T_max={HORIZON_S:.0f}s) ---")
+        for prefix, lbl in TABLE_IV_ROWS_SPEC:
             line = format_row(prefix, lbl, n_val)
             if line:
                 out_lines.append(line)
+            for cap_val, pfx in ((32, prefix), (64, f"{prefix}_64nbr")):
+                rows = select_benchmark_rows(load_raw_data(pfx), n_val)
+                if len(rows) == 0:
+                    continue
+                met = compute_per_seed_metrics(rows)
+                for idx in range(len(rows)):
+                    seed_id = int(round(rows[idx, 12])) if rows.shape[1] > 12 else (idx + 1)
+                    eb_r = rows[idx, 13] if rows.shape[1] > 13 else 1.0
+                    c_tree = rows[idx, 14] if rows.shape[1] > 14 else 0.0
+                    c_sib = rows[idx, 15] if rows.shape[1] > 15 else 0.0
+                    c_cross = rows[idx, 16] if rows.shape[1] > 16 else 0.0
+                    sw = rows[idx, 17] if rows.shape[1] > 17 else 0.0
+                    csv_lines.append(
+                        f"{n_val},{prefix},{cap_val},{seed_id},{eb_r:.4f},"
+                        f"{met['rmst_300_s'][idx]:.2f},{met['m_join_s'][idx]:.3f},"
+                        f"{met['m_sync_s'][idx]:.3f},{met['post_sync_s'][idx]:.3f},{met['p95_s'][idx]:.3f},"
+                        f"{rows[idx, 9]:.1f},{c_tree:.1f},{c_sib:.1f},{c_cross:.1f},{sw:.4f},{met['comp_pct'][idx]:.2f},"
+                        f"{met['tx_mj_per_joined'][idx]:.3f},{met['scan_j_per_pledge'][idx]:.3f},"
+                        f"{met['shared_mj_per_joined'][idx]:.3f},{met['slot0_duty_pct'][idx]:.4f},"
+                        f"{met['formation_duty_pct'][idx]:.3f},{met['e300_j_per_node'][idx]:.3f},{met['t_end_s'][idx]:.2f}"
+                    )
+                if cap_val == 32:
+                    c_tree_m = float(np.mean(rows[:, 14])) if rows.shape[1] > 14 else 0.0
+                    c_sib_m = float(np.mean(rows[:, 15])) if rows.shape[1] > 15 else 0.0
+                    c_cross_m = float(np.mean(rows[:, 16])) if rows.shape[1] > 16 else 0.0
+                    sw_m = float(np.mean(rows[:, 17])) if rows.shape[1] > 17 else 0.0
+                    report_lines.append(
+                        f"  {prefix:18s} (n={len(rows):2d}): comp={np.mean(met['comp_pct']):5.1f}% | "
+                        f"RMST300={np.mean(met['rmst_300_s']):5.1f}s | m_join={np.mean(met['m_join_s']):5.1f}s "
+                        f"(sync={np.mean(met['m_sync_s']):5.1f}s+rpl={np.mean(met['post_sync_s']):5.1f}s) | "
+                        f"coll(T/S/X)={c_tree_m:.0f}/{c_sib_m:.0f}/{c_cross_m:.0f} | sw={sw_m:.2f} | "
+                        f"slot0_DC={np.mean(met['slot0_duty_pct']):.3f}% | form_DC={np.mean(met['formation_duty_pct']):5.2f}% | "
+                        f"e_sh={np.mean(met['shared_mj_per_joined']):6.1f}mJ | E300={np.mean(met['e300_j_per_node']):5.2f}J"
+                    )
+
         if n_val == 500:
             line64 = format_row("p_64nbr", "\\textbf{\\texttt{DEFINE} (Full, 64-Entry Table)}", 500, is_64_only=True)
             if line64:
                 out_lines.append(line64)
 
-    out_file = os.path.join(RESULTS_DIR, "table_iv_real.tex")
-    with open(out_file, "w") as f:
+        # Paired two-sided Wilcoxon + Holm step-down across all 12 baseline rows
+        p_rows = select_benchmark_rows(load_raw_data("p"), n_val)
+        if len(p_rows) > 0 and p_rows.shape[1] > 12:
+            p_met = compute_per_seed_metrics(p_rows)
+            p_by_seed = {
+                int(round(p_rows[i, 12])): (p_met["comp_pct"][i], p_met["rmst_300_s"][i], p_met["m_join_s"][i])
+                for i in range(len(p_rows))
+            }
+            for metric_idx, m_name in enumerate(("DODAG Completion (%)", "RMST_300 (s)", "Cond. Mean Join Time (s)")):
+                tested_names, raw_p = [], []
+                for b_pfx, b_lbl in TABLE_IV_BASELINES:
+                    b_rows = select_benchmark_rows(load_raw_data(b_pfx), n_val)
+                    if len(b_rows) == 0 or b_rows.shape[1] <= 12:
+                        continue
+                    b_met = compute_per_seed_metrics(b_rows)
+                    b_by_seed = {
+                        int(round(b_rows[i, 12])): (b_met["comp_pct"][i], b_met["rmst_300_s"][i], b_met["m_join_s"][i])
+                        for i in range(len(b_rows))
+                    }
+                    common = sorted(set(p_by_seed.keys()) & set(b_by_seed.keys()))
+                    if len(common) >= 3:
+                        x_arr = [p_by_seed[s][metric_idx] for s in common]
+                        y_arr = [b_by_seed[s][metric_idx] for s in common]
+                        tested_names.append(f"{b_lbl} (n={len(common)})")
+                        raw_p.append(wilcoxon_two_sided(x_arr, y_arr))
+                if raw_p:
+                    adj_p = holm_adjust(raw_p)
+                    report_lines.append(f"  [Paired Wilcoxon + Holm ({len(raw_p)} baselines) — {m_name}]: max p_Holm = {np.max(adj_p):.6g}")
+                    for nm, rp, ap in zip(tested_names, raw_p, adj_p):
+                        report_lines.append(f"    vs {nm:28s}: p_raw={rp:.6g}, p_Holm={ap:.6g}")
+
+    with open(os.path.join(RESULTS_DIR, "table_iv_real.tex"), "w") as f:
         f.write("\n".join(out_lines) + "\n")
+    with open(os.path.join(RESULTS_DIR, "table_iv_per_seed.csv"), "w") as f:
+        f.write("\n".join(csv_lines) + "\n")
+    with open(os.path.join(RESULTS_DIR, "stats_report.txt"), "w") as f:
+        f.write("\n".join(report_lines) + "\n")
 
 
 if __name__ == "__main__":
     save_standalone_legend()
     generate_markov_figure6_from_simulation()
     generate_wavefront_cdf_plot()
-    generate_latex_table_iv()
+    generate_latex_table_iv_and_stats()
+
+    rmst_lbl = r"$\mathrm{RMST}_{300}$ (s)"
+    mjoin_lbl = r"Cond. mean join time ($\times 10^4$ slots)"
+    coll_lbl = r"Collisions ($\times 10^4$)"
+    comp_lbl = r"DODAG completion ($\%$)"
 
     f_nodes = {2: 16, 3: 61, 4: 1}
-    plot_sweep(0, f_nodes, 6,  "Total pledges", r"Total sync time ($\times 10^3$ s)", "Fig9a_total_sync_time.png", "motewise_total_time.pdf", y_scale=1e-3, is_tsync=True, mode="motewise")
-    plot_sweep(0, f_nodes, 8,  "Total pledges", r"Average sync time ($\times 10^4$ slots)", "Fig9b_avg_sync_time.png", "motewise_average_neighbour_time.pdf", y_scale=1e-4, mode="motewise")
-    plot_sweep(0, f_nodes, 9,  "Total pledges", r"Collisions ($\times 10^4$)", "Fig9c_collisions.png", "motewise_average_collisions.pdf", y_scale=1e-4, mode="motewise")
-    plot_sweep(0, f_nodes, 5,  "Total pledges", r"DODAG completion ($\%$)", "Fig9d_dodag_completion.png", "motewise_dodag_completion.pdf", is_pct=True, mode="motewise")
+    plot_sweep(0, f_nodes, 6, "Total pledges", rmst_lbl,  "Fig9a_total_sync_time.png", "motewise_total_time.pdf", is_rmst=True, mode="motewise")
+    plot_sweep(0, f_nodes, 8, "Total pledges", mjoin_lbl, "Fig9b_avg_sync_time.png",   "motewise_average_neighbour_time.pdf", y_scale=1e-4, mode="motewise")
+    plot_sweep(0, f_nodes, 9, "Total pledges", coll_lbl,  "Fig9c_collisions.png",      "motewise_average_collisions.pdf", y_scale=1e-4, mode="motewise")
+    plot_sweep(0, f_nodes, 5, "Total pledges", comp_lbl,  "Fig9d_dodag_completion.png","motewise_dodag_completion.pdf", is_pct=True, mode="motewise")
 
     dens_lbl = r"Spatial density ($\times 10^{-2}$ motes/m$^2$)"
-    plot_sweep(0, f_nodes, 6,  dens_lbl, r"Total sync time ($\times 10^3$ s)", "Fig10a_density_total_time.png", "densitywise_total_time.pdf", x_scale=0.01, y_scale=1e-3, is_tsync=True, mode="densitywise")
-    plot_sweep(0, f_nodes, 8,  dens_lbl, r"Average sync time ($\times 10^4$ slots)", "Fig10b_density_avg_time.png", "densitywise_average_neighbour_time.pdf", x_scale=0.01, y_scale=1e-4, mode="densitywise")
-    plot_sweep(0, f_nodes, 9,  dens_lbl, r"Collisions ($\times 10^4$)", "Fig10c_density_collisions.png", "densitywise_average_collisions.pdf", x_scale=0.01, y_scale=1e-4, mode="densitywise")
-    plot_sweep(0, f_nodes, 5,  dens_lbl, r"DODAG completion ($\%$)", "Fig10d_density_completion.png", "densitywise_dodag_completion.pdf", x_scale=0.01, is_pct=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 6, dens_lbl, rmst_lbl,  "Fig10a_density_total_time.png",  "densitywise_total_time.pdf", x_scale=0.01, is_rmst=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 8, dens_lbl, mjoin_lbl, "Fig10b_density_avg_time.png",    "densitywise_average_neighbour_time.pdf", x_scale=0.01, y_scale=1e-4, mode="densitywise")
+    plot_sweep(0, f_nodes, 9, dens_lbl, coll_lbl,  "Fig10c_density_collisions.png",  "densitywise_average_collisions.pdf", x_scale=0.01, y_scale=1e-4, mode="densitywise")
+    plot_sweep(0, f_nodes, 5, dens_lbl, comp_lbl,  "Fig10d_density_completion.png",  "densitywise_dodag_completion.pdf", x_scale=0.01, is_pct=True, mode="densitywise")
 
-    plot_sweep(0, f_nodes, 19, dens_lbl, r"Tx radio energy (mJ/node)", "Fig11a_tx_energy.png", "densitywise_transmission_energy.pdf", x_scale=0.01, is_tx_energy=True, mode="densitywise")
-    plot_sweep(0, f_nodes, 11, dens_lbl, r"Rx scan energy (J/node)", "Fig11b_rx_energy.png", "densitywise_reception_energy.pdf", x_scale=0.01, is_rx_energy=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 19, dens_lbl, r"Tx radio energy (mJ/node)",    "Fig11a_tx_energy.png",    "densitywise_transmission_energy.pdf", x_scale=0.01, is_tx_energy=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 11, dens_lbl, r"Rx scan energy (J/node)",      "Fig11b_rx_energy.png",    "densitywise_reception_energy.pdf", x_scale=0.01, is_rx_energy=True, mode="densitywise")
     plot_sweep(0, f_nodes, 10, dens_lbl, r"Shared-slot energy (mJ/node)", "Fig11c_total_energy.png", "densitywise_total_energy.pdf", x_scale=0.01, is_total_energy=True, mode="densitywise")
-    plot_sweep(0, f_nodes, 10, dens_lbl, r"Radio duty cycle ($\%$)", "Fig11d_duty_cycle.png", "densitywise_duty_cycle.pdf", x_scale=0.01, is_duty=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 10, dens_lbl, r"Formation duty cycle ($\%$)",  "Fig11d_duty_cycle.png",   "densitywise_duty_cycle.pdf", x_scale=0.01, is_duty=True, mode="densitywise")
 
     f_ch = {0: 200, 3: 61, 4: 1}
-    plot_sweep(2, f_ch, 6, "Total channels", r"Total sync time ($\times 10^3$ s)", "Fig12a_ch_total_sync_time.png", "channelwise_total_time.pdf", y_scale=1e-3, is_tsync=True)
-    plot_sweep(2, f_ch, 8, "Total channels", r"Average sync time ($\times 10^4$ slots)", "Fig12b_ch_avg_sync_time.png", "channelwise_average_neighbour_time.pdf", y_scale=1e-4)
-    plot_sweep(2, f_ch, 9, "Total channels", r"Collisions ($\times 10^4$)", "Fig12c_ch_collisions.png", "channelwise_average_collisions.pdf", y_scale=1e-4)
-    plot_sweep(2, f_ch, 5, "Total channels", r"DODAG completion ($\%$)", "Fig12d_ch_dodag_completion.png", "channelwise_dodag_completion.pdf", is_pct=True)
+    plot_sweep(2, f_ch, 6, "Total channels", rmst_lbl,  "Fig12a_ch_total_sync_time.png", "channelwise_total_time.pdf", is_rmst=True)
+    plot_sweep(2, f_ch, 8, "Total channels", mjoin_lbl, "Fig12b_ch_avg_sync_time.png",   "channelwise_average_neighbour_time.pdf", y_scale=1e-4)
+    plot_sweep(2, f_ch, 9, "Total channels", coll_lbl,  "Fig12c_ch_collisions.png",      "channelwise_average_collisions.pdf", y_scale=1e-4)
+    plot_sweep(2, f_ch, 5, "Total channels", comp_lbl,  "Fig12d_ch_dodag_completion.png","channelwise_dodag_completion.pdf", is_pct=True)
 
     f_sf = {0: 200, 2: 16, 4: 1}
-    plot_sweep(3, f_sf, 6, "Slotframe size (slots)", r"Total sync time ($\times 10^3$ s)", "Fig13a_sf_total_sync_time.png", "slotframewise_total_time.pdf", y_scale=1e-3, is_tsync=True)
-    plot_sweep(3, f_sf, 8, "Slotframe size (slots)", r"Average sync time ($\times 10^4$ slots)", "Fig13b_sf_avg_sync_time.png", "slotframewise_average_neighbour_time.pdf", y_scale=1e-4)
-    plot_sweep(3, f_sf, 9, "Slotframe size (slots)", r"Collisions ($\times 10^4$)", "Fig13c_sf_collisions.png", "slotframewise_average_collisions.pdf", y_scale=1e-4)
-    plot_sweep(3, f_sf, 5, "Slotframe size (slots)", r"DODAG completion ($\%$)", "Fig13d_sf_dodag_completion.png", "slotframewise_dodag_completion.pdf", is_pct=True)
+    plot_sweep(3, f_sf, 6, "Slotframe size (slots)", rmst_lbl,  "Fig13a_sf_total_sync_time.png", "slotframewise_total_time.pdf", is_rmst=True)
+    plot_sweep(3, f_sf, 8, "Slotframe size (slots)", mjoin_lbl, "Fig13b_sf_avg_sync_time.png",   "slotframewise_average_neighbour_time.pdf", y_scale=1e-4)
+    plot_sweep(3, f_sf, 9, "Slotframe size (slots)", coll_lbl,  "Fig13c_sf_collisions.png",      "slotframewise_average_collisions.pdf", y_scale=1e-4)
+    plot_sweep(3, f_sf, 5, "Slotframe size (slots)", comp_lbl,  "Fig13d_sf_dodag_completion.png","slotframewise_dodag_completion.pdf", is_pct=True)
 
     f_eb = {0: 200, 2: 16, 3: 61}
-    plot_sweep(4, f_eb, 6, "EB interval multiplier", r"Total sync time ($\times 10^3$ s)", "Fig14a_eb_total_sync_time.png", "eb_intervalwise_total_time.pdf", y_scale=1e-3, is_tsync=True)
-    plot_sweep(4, f_eb, 8, "EB interval multiplier", r"Average sync time ($\times 10^4$ slots)", "Fig14b_eb_avg_sync_time.png", "eb_intervalwise_average_neighbour_time.pdf", y_scale=1e-4)
-    plot_sweep(4, f_eb, 9, "EB interval multiplier", r"Collisions ($\times 10^4$)", "Fig14c_eb_collisions.png", "eb_intervalwise_average_collisions.pdf", y_scale=1e-4)
-    plot_sweep(4, f_eb, 5, "EB interval multiplier", r"DODAG completion ($\%$)", "Fig14d_eb_dodag_completion.png", "eb_intervalwise_dodag_completion.pdf", is_pct=True)
+    plot_sweep(4, f_eb, 6, "EB interval multiplier", rmst_lbl,  "Fig14a_eb_total_sync_time.png", "eb_intervalwise_total_time.pdf", is_rmst=True)
+    plot_sweep(4, f_eb, 8, "EB interval multiplier", mjoin_lbl, "Fig14b_eb_avg_sync_time.png",   "eb_intervalwise_average_neighbour_time.pdf", y_scale=1e-4)
+    plot_sweep(4, f_eb, 9, "EB interval multiplier", coll_lbl,  "Fig14c_eb_collisions.png",      "eb_intervalwise_average_collisions.pdf", y_scale=1e-4)
+    plot_sweep(4, f_eb, 5, "EB interval multiplier", comp_lbl,  "Fig14d_eb_dodag_completion.png","eb_intervalwise_dodag_completion.pdf", is_pct=True)

@@ -10,7 +10,7 @@
 #define RPL_CONF_MIN_HOPRANKINC 256
 
 /* Standard RFC 6206 / RFC 6550 / RFC 6775 dense-network settings
-   (applied identically across DEFINE and all 27 comparison/ablation schemes) */
+   (applied identically across DEFINE and all comparison/ablation schemes) */
 #define RPL_CONF_DIO_INTERVAL_MIN 11                /* 2^11 ms = 2.048 s */
 #define RPL_CONF_DIO_INTERVAL_DOUBLINGS 3           /* I_max = 2^14 ms = 16.384 s */
 #define RPL_CONF_DIO_REDUNDANCY 3                   /* RFC 6206 k=3 prevents DIO storms on cell (0,0) */
@@ -23,7 +23,7 @@
 #define UIP_CONF_ND6_SEND_NA 0
 
 /* Passive EB/DIO timekeeping (disables unicast keep-alive TX storms on cell (0,0));
-   State-1 RX keep-alive in node.c still monitors real tsch_last_sync_time */
+   State-1 RX keep-alive in node.c monitors real tsch_last_sync_time */
 #define TSCH_CONF_KEEPALIVE_TIMEOUT 0
 #define TSCH_CONF_MAX_KEEPALIVE_TIMEOUT (60 * CLOCK_SECOND)
 #define TSCH_CONF_DESYNC_THRESHOLD (180 * CLOCK_SECOND)
@@ -63,6 +63,18 @@
 
 #ifndef POISSON_ARRIVAL
 #define POISSON_ARRIVAL 0
+#endif
+
+#ifndef LATE_JOINER
+#define LATE_JOINER 0
+#endif
+
+#ifndef PARENT_FAILURE
+#define PARENT_FAILURE 0
+#endif
+
+#ifndef N_NODES
+#define N_NODES 500
 #endif
 
 #define TSCH_SCHEDULE_CONF_DEFAULT_LENGTH SF_LENGTH

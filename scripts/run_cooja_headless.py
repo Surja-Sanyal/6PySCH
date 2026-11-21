@@ -45,6 +45,14 @@ SCHEME_MAP = {
     26: "define_mrm",         # DEFINE (Lossy MRM 85% PRR)
     27: "define_rev",         # DEFINE (Reversed Sweep Order)
     28: "define_poisson",     # DEFINE (Poisson Arrivals)
+    29: "ebmc_2s_poisson",    # EBMC (Tuned 2S, Poisson Arrivals)
+    30: "ease_poisson",       # EASE (Poisson Arrivals)
+    31: "ebmc_mrm",           # EBMC (1S, Lossy MRM 85% PRR)
+    32: "ease_mrm",           # EASE (Lossy MRM 85% PRR)
+    33: "idhash_rev",         # ID-Hash + Guard + ADAPT (Reversed Sweep)
+    34: "define_rand",        # DEFINE (Random Sweep Order)
+    35: "define_late",        # DEFINE (Late Joiners, 20% at t=150s)
+    36: "define_fail",        # DEFINE (10% Relay Failure at t=120s)
 }
 
 
@@ -94,12 +102,17 @@ def build_interference_adj(coords, tx_range=50.0):
     return adj
 
 
-def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=600000, nbr_cap=32):
-    poisson_flag = 1 if scheme_id == 28 else 0
-    rx_success = 0.85 if scheme_id == 26 else 1.0
+def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2, timeout_ms=300000, nbr_cap=32):
+    poisson_flag = 1 if scheme_id in (28, 29, 30) else 0
+    late_flag = 1 if scheme_id == 35 else 0
+    fail_flag = 1 if scheme_id == 36 else 0
+    rx_success = 0.85 if scheme_id in (26, 31, 32) else 1.0
+
+    n_pledges = len(coords) - 1
     make_vars = (
         f"SYNC_SCHEME={scheme_id} SF_LENGTH={sf_len} NUM_CHANNELS={n_ch} "
-        f"EB_MULT={eb_mult} NBR_CAP={nbr_cap} POISSON_ARRIVAL={poisson_flag}"
+        f"EB_MULT={eb_mult} NBR_CAP={nbr_cap} POISSON_ARRIVAL={poisson_flag} "
+        f"LATE_JOINER={late_flag} PARENT_FAILURE={fail_flag} N_NODES={n_pledges}"
     )
     mote_id_iface = "org.contikios.cooja.contikimote.interfaces.ContikiMoteID"
     motetype_id = "cooja_define"
@@ -146,6 +159,8 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
     </mote>""")
 
     target_motes = len(coords) - 1
+    # Keep Parent-Failure runs alive past t=120s so relay shutdown & parent switches execute
+    loop_cond = "true" if fail_flag else "joined &lt; target"
 
     csc_content = f"""<?xml version="1.0" encoding="UTF-8"?>
 <simconf>
@@ -173,14 +188,14 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
         TIMEOUT({timeout_ms}, log.testOK());
         var joined = 0;
         var target = {target_motes};
-        while (joined &lt; target) {{
+        while ({loop_cond}) {{
           YIELD();
           if (msg.contains("CSV_JOIN")) {{
             log.log("T_US=" + time + " " + msg + "\\n");
             joined++;
           }} else if (msg.contains("CSV_ENERGEST")) {{
             log.log("T_US=" + time + " " + msg + "\\n");
-          }} else if (msg.contains("CSV_SLOT0_TX") || msg.contains("CSV_SCAN_ENERGEST") || msg.contains("CSV_PARENT_SWITCH")) {{
+          }} else if (msg.contains("CSV_SLOT0_TX") || msg.contains("CSV_SCAN_ENERGEST") || msg.contains("CSV_PARENT_SWITCH") || msg.contains("CSV_NODE_FAILED")) {{
             log.log(msg + "\\n");
           }}
         }}
@@ -261,6 +276,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
             log_lines = f.readlines()
 
         joined_asns = {}
+        sync_asns = {}
         join_times_us = {}
         scan_rx_us_map = {}
         node_parent = {1: 0}
@@ -278,6 +294,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
                 if mj.group(1) is not None:
                     join_times_us[nid] = int(mj.group(1))
                 joined_asns[nid] = int(mj.group(3))
+                sync_asns[nid] = int(mj.group(4))
                 scan_rx_us_map[nid] = int(mj.group(5))
                 node_parent[nid] = int(mj.group(6))
                 node_tier[nid] = int(mj.group(7))
@@ -378,6 +395,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         c_frac = float(num_joined) / float(n_nodes)
         unjoined_frac = 1.0 - c_frac
         mean_join_asn = float(np.mean(asns))
+        mean_sync_asn = float(np.mean(list(sync_asns.values()))) if sync_asns else mean_join_asn
         p95_join_asn = float(np.percentile(asns, 95))
         median_join_s = float(np.median(asns)) * 0.01
         all_join_seconds.extend([float(a) * 0.01 for a in asns])
@@ -386,7 +404,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         t_sync_hat_s = 0.55 * median_join_s + unjoined_frac * t_pen_s
 
         # Actual elapsed simulation horizon (T_form if 100% joined, else full timeout) for Fig. 9(d) duty cycle
-        t_end_s = (max_join_us / 1e6) if (num_joined >= n_nodes and join_times_us) else (sim_timeout_ms / 1000.0)
+        t_end_s = (max_join_us / 1e6) if (num_joined >= n_nodes and join_times_us and scheme_id != 36) else (sim_timeout_ms / 1000.0)
 
         slot0_tx_us_sum = sum(node_tx_us.values())
         slot0_rx_us_sum = sum(node_rx_us.values())
@@ -408,7 +426,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
                 coll_total, slot0_equiv_tx_ticks, scan_rx_ticks_32k,
                 seed, round(eb_rate, 4), coll_tree, coll_sib, coll_cross,
                 round(mean_switches, 4), round(mean_retries, 4),
-                slot0_tx_only_ticks, round(t_end_s, 4)
+                slot0_tx_only_ticks, round(t_end_s, 4), round(mean_sync_asn, 2)
             ]
             fp.write(",".join(map(str, row)) + ",\n")
 
@@ -422,7 +440,9 @@ def run_sweep_group(scheme_id, group_id, seeds=None):
         seeds = list(range(1, 6))
     if 1 <= group_id <= 10:
         n = group_id * 50
-        run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=None, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=32)
+        # Only main sweep schemes (1..8) are plotted on Fig. 7 (constant-density area=None)
+        if scheme_id <= 8:
+            run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=None, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=32)
         run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=100, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=32)
         if n in (100, 500):
             run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=100, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=64)

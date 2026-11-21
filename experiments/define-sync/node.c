@@ -26,6 +26,7 @@ static uint32_t eb_tx_counter = 0;
 static uint32_t slot_callbacks = 0;
 static uint32_t boot_asn = 0;
 static uint32_t sync_asn = 0;
+static uint8_t node_failed = 0;
 
 /* Real Energest baseline snapshots */
 static uint64_t boot_rx_ticks = 0;
@@ -262,6 +263,9 @@ update_rank_tier(uint8_t do_immediate_refresh, uint8_t do_guard, uint8_t use_id_
 static void
 apply_scheme_schedule(void)
 {
+  if(node_failed) {
+    return;
+  }
   sf_min = tsch_schedule_get_slotframe_by_handle(0);
   if(!tsch_is_associated || sf_min == NULL) {
     return;
@@ -270,15 +274,21 @@ apply_scheme_schedule(void)
   uint32_t asn_now = tsch_current_asn.ls4b;
   uint32_t sf_num = (uint32_t)(asn_now / SF_LENGTH);
 
-  /* Algorithm 1: Between TSCH sync and RPL DODAG join, keep (0,0) open on 75% of slotframes
+  /* Algorithm 1: Between TSCH sync and RPL DODAG join, keep (0,0) open on 3 of 4 slotframes
      for fast DIO reception and probe candidate EB offsets every 4th slotframe during a bounded window */
   if(!NETSTACK_ROUTING.node_has_joined() && node_id != 1) {
     uint32_t max_win_sfs = (NUM_CHANNELS * 2 < 16) ? (uint32_t)(NUM_CHANNELS * 2) : 16UL;
     uint32_t w_eb = max_win_sfs * (uint32_t)SF_LENGTH;
     uint8_t in_sweep_win = (sync_asn > 0 && asn_now >= sync_asn && (asn_now - sync_asn) < w_eb);
-    if(in_sweep_win && (sf_num & 3) == 3 && (SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28))) {
+    uint8_t uses_alg1 = (SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28) || (SYNC_SCHEME >= 33 && SYNC_SCHEME <= 36));
+    if(in_sweep_win && (sf_num & 3) == 3 && uses_alg1) {
       uint8_t step = (uint8_t)((sf_num >> 2) % NUM_CHANNELS);
-      uint8_t cand_off = (SYNC_SCHEME == 27) ? (uint8_t)((NUM_CHANNELS - 1) - step) : step;
+      uint8_t cand_off = step;
+      if(SYNC_SCHEME == 27 || SYNC_SCHEME == 33) {
+        cand_off = (uint8_t)((NUM_CHANNELS - 1) - step);
+      } else if(SYNC_SCHEME == 34) {
+        cand_off = (uint8_t)(random_rand() % NUM_CHANNELS);
+      }
       set_slot0_link(cand_off, LINK_OPTION_RX | LINK_OPTION_SHARED | LINK_OPTION_TIME_KEEPING, LINK_TYPE_NORMAL);
     } else {
       set_slot0_link(0, LINK_OPTION_TX | LINK_OPTION_RX | LINK_OPTION_SHARED | LINK_OPTION_TIME_KEEPING, LINK_TYPE_NORMAL);
@@ -299,6 +309,9 @@ apply_scheme_schedule(void)
     case 26: /* DEFINE (Lossy MRM 85% PRR) */
     case 27: /* DEFINE (Reversed Sweep Order - same ASSIGN map, reversed Alg. 1 sweep) */
     case 28: /* DEFINE (Poisson Arrivals) */
+    case 34: /* DEFINE (Random Sweep Order) */
+    case 35: /* DEFINE (Late Joiners into Steady Network) */
+    case 36: /* DEFINE (Parent Failure & Rejoin) */
       update_rank_tier(1, 1, 0);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       enable_keepalive = 1;
@@ -326,6 +339,7 @@ apply_scheme_schedule(void)
       break;
 
     case 16: /* ID-Hash + Guard + ADAPT (Control) */
+    case 33: /* ID-Hash + Guard + ADAPT (Reversed Sweep) */
       update_rank_tier(1, 1, 1);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       enable_keepalive = 1;
@@ -425,13 +439,15 @@ apply_scheme_schedule(void)
       break;
     }
 
-    case 8:  /* EASE */
+    case 8:  /* EASE [27]: textbook P_eb = 1 / (1 + nbr_u) */
+    case 30: /* EASE (Poisson Arrivals) */
+    case 32: /* EASE (Lossy UDGM 85% PRR) */
+    {
+      uint16_t raw_p = (255U / (uint16_t)(1 + (nbrs > 0 ? nbrs : 0))) / (uint16_t)EB_MULT;
       ch_offset_u = (uint8_t)(((uint32_t)node_id * 2654435761UL) % NUM_CHANNELS);
-      tx_prob_u8 = (uint8_t)((255 / (1 + (nbrs > 0 ? nbrs : 0))) / EB_MULT);
-      if(tx_prob_u8 < 38) {
-        tx_prob_u8 = 38;
-      }
+      tx_prob_u8 = (raw_p < 1U) ? 1U : (uint8_t)raw_p;
       break;
+    }
 
     case 9:  /* Pairing [19] */
     {
@@ -442,11 +458,13 @@ apply_scheme_schedule(void)
     }
 
     case 10: /* EBMC (1S) [20] */
+    case 31: /* EBMC (1S, Lossy MRM 85% PRR) */
       ch_offset_u = (uint8_t)((node_id % (NUM_CHANNELS / 2)) * 2);
       tx_prob_u8 = (uint8_t)(128 / EB_MULT);
       break;
 
     case 13: /* EBMC (Tuned 2S) */
+    case 29: /* EBMC (Tuned 2S, Poisson Arrivals) */
       ch_offset_u = (uint8_t)((node_id % (NUM_CHANNELS / 2)) * 2);
       tx_prob_u8 = 64;
       break;
@@ -502,6 +520,10 @@ apply_scheme_schedule(void)
     uint64_t cur_tx = energest_type_time(ENERGEST_TYPE_TRANSMIT);
     uint64_t cur_rx = energest_type_time(ENERGEST_TYPE_LISTEN);
     uint32_t slot0_tx_us = (uint32_t)(((cur_tx > join_tx_ticks ? (cur_tx - join_tx_ticks) : 0) * 1000000ULL) / ENERGEST_SECOND);
+#if SYNC_SCHEME == 5 && ATP_SUBSLOTS > 1
+    /* Account for physical 250-kbps airtime (1600 us per 50-byte EB) of the (s-1) extra ATP subslot EBs */
+    slot0_tx_us += (uint32_t)((eb_tx_counter / ATP_SUBSLOTS) * (uint32_t)(ATP_SUBSLOTS - 1) * 1600UL);
+#endif
     uint32_t slot0_rx_us = (uint32_t)(((cur_rx > join_rx_ticks ? (cur_rx - join_rx_ticks) : 0) * 1000000ULL) / ENERGEST_SECOND);
     LOG_INFO("CSV_ENERGEST,id=%u,sf=%lu,eb=%lu,tx_us=%lu,rx_us=%lu,nbrs=%d,switches=%u,retries=%lu\n",
              (unsigned)node_id, (unsigned long)slot_callbacks, (unsigned long)eb_tx_counter,
@@ -514,7 +536,9 @@ static void
 slotframe_callback(void *ptr)
 {
   apply_scheme_schedule();
-  ctimer_reset(&sf_timer);
+  if(!node_failed) {
+    ctimer_reset(&sf_timer);
+  }
 }
 
 PROCESS(define_node_process, "DEFINE 6TiSCH Experiment Node");
@@ -524,6 +548,7 @@ PROCESS_THREAD(define_node_process, ev, data)
 {
   static struct etimer check_timer;
   static struct etimer arrival_timer;
+  static struct etimer fail_timer;
   static uint16_t poll_ticks = 0;
   PROCESS_BEGIN();
 
@@ -544,12 +569,26 @@ PROCESS_THREAD(define_node_process, ev, data)
     join_logged = 1;
   } else {
 #if POISSON_ARRIVAL
-    clock_time_t arrival_delay = (clock_time_t)(((node_id - 1) * CLOCK_SECOND) / 5 + (random_rand() % (CLOCK_SECOND / 5)));
-    etimer_set(&arrival_timer, arrival_delay);
-    PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&arrival_timer));
+    /* Homogeneous Poisson process (lambda = 5/s) conditioned on N_NODES arrivals:
+       unordered arrival times are i.i.d. Uniform[0, N_NODES / 5] seconds */
+    uint64_t window_ticks = ((uint64_t)N_NODES * (uint64_t)CLOCK_SECOND) / 5ULL;
+    clock_time_t arrival_delay = (clock_time_t)(((uint64_t)random_rand() * window_ticks) >> 16);
+    if(arrival_delay > 0) {
+      etimer_set(&arrival_timer, arrival_delay);
+      PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&arrival_timer));
+    }
     boot_asn = tsch_current_asn.ls4b;
     energest_flush();
     boot_rx_ticks = energest_type_time(ENERGEST_TYPE_LISTEN);
+#elif LATE_JOINER
+    /* 20% of pledges boot at t = 150 s into an already-formed steady network (P_min = 0.15 regime) */
+    if((node_id % 5) == 0) {
+      etimer_set(&arrival_timer, (clock_time_t)(150 * CLOCK_SECOND));
+      PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&arrival_timer));
+      boot_asn = tsch_current_asn.ls4b;
+      energest_flush();
+      boot_rx_ticks = energest_type_time(ENERGEST_TYPE_LISTEN);
+    }
 #else
     (void)arrival_timer;
 #endif
@@ -580,6 +619,7 @@ PROCESS_THREAD(define_node_process, ev, data)
       join_tx_ticks = energest_type_time(ENERGEST_TYPE_TRANSMIT);
       join_rx_ticks = energest_type_time(ENERGEST_TYPE_LISTEN);
       uint32_t scan_rx_us = (uint32_t)(((join_rx_ticks > boot_rx_ticks ? (join_rx_ticks - boot_rx_ticks) : 0) * 1000000ULL) / ENERGEST_SECOND);
+      uint32_t elapsed_sync_slots = (sync_asn > boot_asn) ? (sync_asn - boot_asn) : sync_asn;
       uint32_t elapsed_join_slots = (join_asn > boot_asn) ? (join_asn - boot_asn) : join_asn;
 
       apply_scheme_schedule();
@@ -587,7 +627,7 @@ PROCESS_THREAD(define_node_process, ev, data)
       LOG_INFO("CSV_JOIN,id=%u,asn=%lu,sync_asn=%lu,scan_rx_us=%lu,parent=%u,tier=%u,nbrs=%d\n",
                (unsigned)node_id,
                (unsigned long)elapsed_join_slots,
-               (unsigned long)elapsed_join_slots,
+               (unsigned long)elapsed_sync_slots,
                (unsigned long)scan_rx_us,
                (unsigned)get_preferred_parent_id(),
                (unsigned)cached_h_u,
@@ -604,6 +644,25 @@ PROCESS_THREAD(define_node_process, ev, data)
       etimer_reset(&check_timer);
     }
   }
+
+#if PARENT_FAILURE
+  /* Controlled relay failure: 10% of non-root relays shut down at t = 120 s to test failover/rejoin */
+  if(node_id != 1 && (node_id % 10) == 2) {
+    clock_time_t now = clock_time();
+    clock_time_t target = (clock_time_t)(120 * CLOCK_SECOND);
+    if(target > now) {
+      etimer_set(&fail_timer, target - now);
+      PROCESS_WAIT_EVENT_UNTIL(etimer_expired(&fail_timer));
+    }
+    node_failed = 1;
+    ctimer_stop(&sf_timer);
+    NETSTACK_MAC.off();
+    LOG_INFO("CSV_NODE_FAILED,id=%u,asn=%lu\n",
+             (unsigned)node_id, (unsigned long)tsch_current_asn.ls4b);
+  }
+#else
+  (void)fail_timer;
+#endif
 
   PROCESS_END();
 }

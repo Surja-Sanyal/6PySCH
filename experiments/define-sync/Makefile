@@ -37,6 +37,18 @@ ifdef POISSON_ARRIVAL
 CFLAGS += -DPOISSON_ARRIVAL=$(POISSON_ARRIVAL)
 endif
 
+ifdef LATE_JOINER
+CFLAGS += -DLATE_JOINER=$(LATE_JOINER)
+endif
+
+ifdef PARENT_FAILURE
+CFLAGS += -DPARENT_FAILURE=$(PARENT_FAILURE)
+endif
+
+ifdef N_NODES
+CFLAGS += -DN_NODES=$(N_NODES)
+endif
+
 CFLAGS += -fno-stack-protector
 
 include $(CONTIKI)/Makefile.include
