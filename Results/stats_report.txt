@@ -1,4 +1,4 @@
-=== DEFINE Multi-Seed Statistical & Provenance Report (T_max = 300 s) ===
+=== DEFINE Multi-Seed Statistical & Provenance Report (T_max = 300 s, default NBR_CAP = 16) ===
 
 --- Benchmark N = 100 (100m x 100m, C=16, S=61, I_eb=1S, T_max=300s) ---
   e                  (n= 5): comp= 36.0% | RMST300=240.2s | m_join=134.5s (sync=  9.7s+rpl=124.8s) | coll(T/S/X)=8597/25/0 | sw=0.00 | slot0_DC=0.094% | form_DC=25.52% | e_sh=  14.8mJ | E300=13.55J
