@@ -1,180 +1,180 @@
 === DEFINE Multi-Seed Statistical & Provenance Report (T_max = 300 s, default NBR_CAP = 16) ===
 
 --- Benchmark N = 100 (100m x 100m, C=16, S=61, I_eb=1S, T_max=300s) ---
-  e                  (n= 5): comp= 37.0% | RMST300=239.8s | m_join=139.7s (sync= 14.5s+rpl=125.2s) | coll(T/S/X)=9092/54/0 | sw=0.00 | slot0_DC=0.109% | form_DC=25.71% | e_sh=  17.0mJ | E300=13.53J | nbr(50/95/99)=1.0/1.0/1.0 | c_i=1.00 h=0.00 n_w=7.67
-  mc_4s              (n= 5): comp= 50.8% | RMST300=214.3s | m_join=131.1s (sync= 42.6s+rpl= 88.5s) | coll(T/S/X)=815/2086/0 | sw=0.91 | slot0_DC=0.170% | form_DC=24.20% | e_sh=  26.6mJ | E300=12.10J | nbr(50/95/99)=1.6/3.8/4.5 | c_i=1.00 h=0.00 n_w=9.87
-  mc_26s             (n= 5): comp= 77.2% | RMST300=181.0s | m_join=146.4s (sync= 85.5s+rpl= 60.9s) | coll(T/S/X)=46/579/0 | sw=1.27 | slot0_DC=0.239% | form_DC=35.80% | e_sh=  37.5mJ | E300=10.24J | nbr(50/95/99)=4.9/8.4/9.3 | c_i=1.00 h=0.00 n_w=15.67
-  c                  (n= 5): comp= 33.4% | RMST300=236.8s | m_join=111.9s (sync= 41.0s+rpl= 71.0s) | coll(T/S/X)=2024/2062/0 | sw=0.41 | slot0_DC=0.153% | form_DC=38.66% | e_sh=  24.0mJ | E300=13.36J | nbr(50/95/99)=1.0/2.4/2.9 | c_i=1.00 h=0.00 n_w=6.15
-  a_2                (n= 5): comp= 57.0% | RMST300=191.6s | m_join=110.9s (sync= 16.9s+rpl= 94.0s) | coll(T/S/X)=20590/5878/0 | sw=0.53 | slot0_DC=0.229% | form_DC=30.50% | e_sh=  35.8mJ | E300=10.83J | nbr(50/95/99)=2.4/6.7/8.2 | c_i=1.92 h=0.00 n_w=7.39
-  r                  (n= 5): comp= 84.4% | RMST300=147.2s | m_join=118.9s (sync= 14.8s+rpl=104.1s) | coll(T/S/X)=1287/14699/0 | sw=0.91 | slot0_DC=0.126% | form_DC= 5.05% | e_sh=  19.8mJ | E300= 8.32J | nbr(50/95/99)=2.8/5.8/7.4 | c_i=9.93 h=0.00 n_w=1.89
-  d                  (n= 5): comp= 71.8% | RMST300=168.3s | m_join=118.0s (sync= 14.5s+rpl=103.5s) | coll(T/S/X)=922/11524/0 | sw=0.87 | slot0_DC=0.128% | form_DC= 5.65% | e_sh=  20.0mJ | E300= 9.50J | nbr(50/95/99)=2.6/7.5/11.1 | c_i=9.55 h=0.00 n_w=1.71
-  pair               (n= 5): comp= 95.8% | RMST300=127.9s | m_join=120.3s (sync= 15.7s+rpl=104.6s) | coll(T/S/X)=2896/16578/0 | sw=1.00 | slot0_DC=0.125% | form_DC= 5.64% | e_sh=  19.6mJ | E300= 7.23J | nbr(50/95/99)=3.2/7.6/9.1 | c_i=10.63 h=0.00 n_w=2.17
-  pair_2s            (n= 5): comp= 92.6% | RMST300=136.4s | m_join=123.4s (sync= 19.2s+rpl=104.2s) | coll(T/S/X)=944/10566/0 | sw=1.25 | slot0_DC=0.178% | form_DC= 6.79% | e_sh=  27.8mJ | E300= 7.72J | nbr(50/95/99)=4.8/9.0/10.2 | c_i=10.85 h=0.00 n_w=2.03
-  t                  (n= 5): comp= 93.4% | RMST300=130.3s | m_join=118.5s (sync= 21.0s+rpl= 97.5s) | coll(T/S/X)=1636/8762/0 | sw=1.23 | slot0_DC=0.194% | form_DC= 7.57% | e_sh=  30.4mJ | E300= 7.38J | nbr(50/95/99)=5.1/9.2/10.2 | c_i=8.46 h=0.00 n_w=2.63
-  trgb_2s            (n= 5): comp= 91.0% | RMST300=140.2s | m_join=124.5s (sync= 26.9s+rpl= 97.6s) | coll(T/S/X)=493/4181/0 | sw=1.21 | slot0_DC=0.232% | form_DC= 9.38% | e_sh=  36.3mJ | E300= 7.94J | nbr(50/95/99)=6.2/10.2/11.7 | c_i=8.43 h=0.00 n_w=2.49
-  ebmc               (n= 5): comp= 84.0% | RMST300=155.3s | m_join=127.4s (sync= 19.8s+rpl=107.6s) | coll(T/S/X)=911/7767/0 | sw=1.09 | slot0_DC=0.161% | form_DC= 7.18% | e_sh=  25.2mJ | E300= 8.78J | nbr(50/95/99)=3.6/8.8/10.8 | c_i=6.35 h=0.00 n_w=3.02
-  ebmc_2s            (n= 5): comp= 89.0% | RMST300=142.9s | m_join=123.9s (sync= 29.0s+rpl= 94.9s) | coll(T/S/X)=290/4247/0 | sw=1.29 | slot0_DC=0.210% | form_DC= 9.90% | e_sh=  33.0mJ | E300= 8.09J | nbr(50/95/99)=5.8/10.5/11.9 | c_i=6.33 h=0.00 n_w=3.17
-  s                  (n= 5): comp= 92.4% | RMST300=127.1s | m_join=113.0s (sync= 17.2s+rpl= 95.8s) | coll(T/S/X)=194/3991/0 | sw=1.29 | slot0_DC=0.223% | form_DC= 5.98% | e_sh=  34.9mJ | E300= 7.20J | nbr(50/95/99)=6.4/11.9/13.0 | c_i=10.66 h=0.00 n_w=2.04
-  ease_adapt         (n= 5): comp= 96.0% | RMST300=119.8s | m_join=112.1s (sync= 18.7s+rpl= 93.5s) | coll(T/S/X)=65/620/901 | sw=1.39 | slot0_DC=0.250% | form_DC= 6.55% | e_sh=  39.2mJ | E300= 6.80J | nbr(50/95/99)=7.0/12.5/13.4 | c_i=10.77 h=2.66 n_w=2.06
-  ebmc_adapt         (n= 5): comp= 96.2% | RMST300=130.8s | m_join=124.2s (sync= 19.6s+rpl=104.6s) | coll(T/S/X)=110/2216/0 | sw=1.27 | slot0_DC=0.247% | form_DC= 6.98% | e_sh=  38.7mJ | E300= 7.41J | nbr(50/95/99)=6.6/11.1/12.0 | c_i=10.81 h=0.00 n_w=2.05
-  idhash_guard_adapt (n= 5): comp= 94.0% | RMST300=140.7s | m_join=130.8s (sync= 18.5s+rpl=112.4s) | coll(T/S/X)=22/619/853 | sw=1.13 | slot0_DC=0.243% | form_DC= 6.53% | e_sh=  38.0mJ | E300= 7.97J | nbr(50/95/99)=6.2/10.0/12.0 | c_i=10.79 h=2.51 n_w=2.00
-  idhash_rev         (n= 5): comp= 93.4% | RMST300=137.0s | m_join=126.2s (sync= 20.3s+rpl=105.9s) | coll(T/S/X)=31/668/817 | sw=1.09 | slot0_DC=0.236% | form_DC= 7.11% | e_sh=  36.9mJ | E300= 7.76J | nbr(50/95/99)=5.6/9.9/11.7 | c_i=10.68 h=2.52 n_w=2.01
-  assign_hyst        (n= 5): comp= 85.8% | RMST300=147.2s | m_join=122.4s (sync= 18.4s+rpl=104.0s) | coll(T/S/X)=854/13929/1778 | sw=0.79 | slot0_DC=0.140% | form_DC= 6.56% | e_sh=  22.0mJ | E300= 8.32J | nbr(50/95/99)=2.4/8.6/11.3 | c_i=7.32 h=2.33 n_w=2.63
-  assign_ref         (n= 5): comp= 85.8% | RMST300=147.2s | m_join=122.4s (sync= 18.4s+rpl=104.0s) | coll(T/S/X)=854/13929/1778 | sw=0.79 | slot0_DC=0.140% | form_DC= 6.56% | e_sh=  22.0mJ | E300= 8.32J | nbr(50/95/99)=2.4/8.6/11.3 | c_i=7.32 h=2.33 n_w=2.63
-  assign_guard       (n= 5): comp= 86.4% | RMST300=149.7s | m_join=126.7s (sync= 18.3s+rpl=108.3s) | coll(T/S/X)=304/13615/2417 | sw=0.80 | slot0_DC=0.139% | form_DC= 6.43% | e_sh=  21.8mJ | E300= 8.46J | nbr(50/95/99)=2.4/8.2/10.8 | c_i=7.87 h=2.39 n_w=2.49
-  assign_both        (n= 5): comp= 86.4% | RMST300=149.7s | m_join=126.7s (sync= 18.3s+rpl=108.3s) | coll(T/S/X)=304/13615/2417 | sw=0.80 | slot0_DC=0.139% | form_DC= 6.43% | e_sh=  21.8mJ | E300= 8.46J | nbr(50/95/99)=2.4/8.2/10.8 | c_i=7.87 h=2.39 n_w=2.49
-  adapt_age          (n= 5): comp= 56.4% | RMST300=206.0s | m_join=133.4s (sync= 37.1s+rpl= 96.3s) | coll(T/S/X)=568/2083/0 | sw=1.00 | slot0_DC=0.183% | form_DC=20.84% | e_sh=  28.6mJ | E300=11.63J | nbr(50/95/99)=2.3/5.4/6.1 | c_i=1.00 h=0.00 n_w=11.58
-  adapt_dens         (n= 3): comp= 38.0% | RMST300=226.8s | m_join=113.2s (sync= 25.9s+rpl= 87.3s) | coll(T/S/X)=7595/40/0 | sw=0.00 | slot0_DC=0.141% | form_DC=28.03% | e_sh=  22.1mJ | E300=12.80J | nbr(50/95/99)=1.0/1.0/1.0 | c_i=1.00 h=0.00 n_w=7.60
-  adapt_nophase      (n= 5): comp= 59.4% | RMST300=200.0s | m_join=131.5s (sync= 38.5s+rpl= 93.0s) | coll(T/S/X)=507/2184/0 | sw=1.05 | slot0_DC=0.193% | form_DC=19.17% | e_sh=  30.3mJ | E300=11.30J | nbr(50/95/99)=2.6/5.4/6.1 | c_i=1.00 h=0.00 n_w=12.05
-  adapt_full         (n= 5): comp= 59.4% | RMST300=198.6s | m_join=129.5s (sync= 35.5s+rpl= 94.1s) | coll(T/S/X)=557/2084/0 | sw=0.96 | slot0_DC=0.191% | form_DC=21.02% | e_sh=  29.9mJ | E300=11.22J | nbr(50/95/99)=2.6/5.4/6.0 | c_i=1.00 h=0.00 n_w=11.78
-  define_noka        (n= 5): comp= 93.2% | RMST300=130.1s | m_join=118.8s (sync= 21.2s+rpl= 97.6s) | coll(T/S/X)=62/1331/1107 | sw=1.37 | slot0_DC=0.235% | form_DC= 7.42% | e_sh=  36.8mJ | E300= 7.37J | nbr(50/95/99)=6.2/10.8/12.5 | c_i=9.63 h=2.56 n_w=2.32
-  ebmc_mrm           (n= 5): comp= 81.6% | RMST300=160.7s | m_join=129.3s (sync= 21.7s+rpl=107.5s) | coll(T/S/X)=722/7519/0 | sw=1.06 | slot0_DC=0.158% | form_DC= 7.73% | e_sh=  24.8mJ | E300= 9.08J | nbr(50/95/99)=3.7/8.2/9.9 | c_i=6.29 h=0.00 n_w=2.98
-  ease_mrm           (n= 5): comp= 93.4% | RMST300=135.9s | m_join=124.5s (sync= 16.7s+rpl=107.9s) | coll(T/S/X)=112/3910/0 | sw=1.19 | slot0_DC=0.210% | form_DC= 5.78% | e_sh=  32.9mJ | E300= 7.70J | nbr(50/95/99)=6.0/12.6/13.8 | c_i=10.75 h=0.00 n_w=2.04
-  define_hoptier_mrm (n= 5): comp= 95.2% | RMST300=130.8s | m_join=122.9s (sync= 19.2s+rpl=103.7s) | coll(T/S/X)=28/2075/156 | sw=1.31 | slot0_DC=0.251% | form_DC= 6.89% | e_sh=  39.3mJ | E300= 7.42J | nbr(50/95/99)=6.4/11.4/12.3 | c_i=8.10 h=1.08 n_w=2.71
-  define_mrm         (n= 5): comp= 93.2% | RMST300=133.6s | m_join=122.3s (sync= 19.1s+rpl=103.1s) | coll(T/S/X)=25/956/949 | sw=1.21 | slot0_DC=0.245% | form_DC= 6.88% | e_sh=  38.4mJ | E300= 7.57J | nbr(50/95/99)=6.2/10.3/12.3 | c_i=9.71 h=2.38 n_w=2.21
-  define_rev         (n= 5): comp= 93.8% | RMST300=142.4s | m_join=133.2s (sync= 21.1s+rpl=112.1s) | coll(T/S/X)=45/1031/912 | sw=1.20 | slot0_DC=0.238% | form_DC= 7.55% | e_sh=  37.3mJ | E300= 8.07J | nbr(50/95/99)=5.6/10.6/11.6 | c_i=9.40 h=2.47 n_w=2.31
-  define_rand        (n= 5): comp= 92.6% | RMST300=129.4s | m_join=115.7s (sync= 19.8s+rpl= 96.0s) | coll(T/S/X)=34/982/1148 | sw=1.34 | slot0_DC=0.263% | form_DC= 7.13% | e_sh=  41.2mJ | E300= 7.34J | nbr(50/95/99)=6.0/10.8/12.4 | c_i=9.57 h=2.54 n_w=2.24
-  define_tierstart   (n= 5): comp= 95.8% | RMST300=137.2s | m_join=130.8s (sync= 20.9s+rpl=109.8s) | coll(T/S/X)=29/1056/925 | sw=1.11 | slot0_DC=0.225% | form_DC= 7.48% | e_sh=  35.3mJ | E300= 7.77J | nbr(50/95/99)=5.2/10.5/11.5 | c_i=9.55 h=2.38 n_w=2.37
-  ebmc_2s_poisson    (n= 5): comp= 90.6% | RMST300=139.4s | m_join=123.0s (sync= 23.4s+rpl= 99.6s) | coll(T/S/X)=206/4111/0 | sw=1.21 | slot0_DC=0.195% | form_DC= 8.12% | e_sh=  30.5mJ | E300= 7.89J | nbr(50/95/99)=4.2/9.3/11.2 | c_i=6.17 h=0.00 n_w=3.07
-  ease_poisson       (n= 5): comp= 92.8% | RMST300=127.5s | m_join=114.1s (sync= 14.6s+rpl= 99.5s) | coll(T/S/X)=206/3758/0 | sw=1.26 | slot0_DC=0.209% | form_DC= 5.15% | e_sh=  32.7mJ | E300= 7.22J | nbr(50/95/99)=6.1/11.6/12.9 | c_i=9.85 h=0.00 n_w=1.96
-  define_poisson     (n= 5): comp= 93.0% | RMST300=132.1s | m_join=120.1s (sync= 21.1s+rpl= 99.0s) | coll(T/S/X)=45/879/921 | sw=1.46 | slot0_DC=0.240% | form_DC= 7.40% | e_sh=  37.5mJ | E300= 7.49J | nbr(50/95/99)=6.5/11.3/13.1 | c_i=9.38 h=2.68 n_w=2.05
-  define_late        (n= 5): comp= 95.0% | RMST300=116.3s | m_join=106.6s (sync= 16.3s+rpl= 90.3s) | coll(T/S/X)=41/902/863 | sw=1.24 | slot0_DC=0.236% | form_DC= 5.78% | e_sh=  37.0mJ | E300= 6.59J | nbr(50/95/99)=6.4/12.0/13.6 | c_i=8.83 h=2.48 n_w=1.99
-  define_fail        (n= 5): comp= 93.2% | RMST300=132.9s | m_join=121.4s (sync= 21.3s+rpl=100.2s) | coll(T/S/X)=44/949/894 | sw=1.23 | slot0_DC=0.234% | form_DC= 7.43% | e_sh=  36.6mJ | E300= 7.53J | nbr(50/95/99)=5.4/11.8/13.0 | c_i=9.17 h=2.53 n_w=2.24
-  define_mixed       (n= 5): comp= 33.2% | RMST300=244.0s | m_join=131.9s (sync= 19.1s+rpl=112.8s) | coll(T/S/X)=285/1577/33 | sw=0.69 | slot0_DC=0.167% | form_DC=13.53% | e_sh=  26.2mJ | E300=13.77J | nbr(50/95/99)=1.2/2.9/4.0 | c_i=4.33 h=1.22 n_w=1.71
-  p                  (n= 5): comp= 95.8% | RMST300=137.2s | m_join=130.8s (sync= 20.9s+rpl=109.8s) | coll(T/S/X)=29/1056/925 | sw=1.11 | slot0_DC=0.225% | form_DC= 7.48% | e_sh=  35.3mJ | E300= 7.77J | nbr(50/95/99)=5.2/10.5/11.5 | c_i=9.55 h=2.38 n_w=2.37
-  [Paired Wilcoxon + Holm (14 baselines) — DODAG Completion (%)]: max p_Holm = 1
-    vs 6TiSCH-MC (1S) (n=5)        : p_raw=0.0625, p_Holm=0.810702
-    vs 6TiSCH-MC (Tuned 4S) (n=5)  : p_raw=0.0625, p_Holm=0.810702
-    vs 6TiSCH-MC (Default 26S) (n=5): p_raw=0.0625, p_Holm=0.810702
-    vs CSMJ (n=5)                  : p_raw=0.0625, p_Holm=0.810702
-    vs ATP: 2 (n=5)                : p_raw=0.0579073, p_Holm=0.810702
-    vs EDBA-SA (n=5)               : p_raw=0.0625, p_Holm=0.810702
-    vs ECV-SA (n=5)                : p_raw=0.0625, p_Holm=0.810702
-    vs Pairing (1S) (n=5)          : p_raw=1, p_Holm=1
-    vs Pairing (Tuned 2S) (n=5)    : p_raw=0.3125, p_Holm=1
-    vs TRGB (1S) (n=5)             : p_raw=0.587937, p_Holm=1
-    vs TRGB (Tuned 2S) (n=5)       : p_raw=0.125, p_Holm=0.810702
-    vs EBMC (1S) (n=5)             : p_raw=0.0625, p_Holm=0.810702
-    vs EBMC (Tuned 2S) (n=5)       : p_raw=0.0579073, p_Holm=0.810702
-    vs EASE (n=5)                  : p_raw=0.343028, p_Holm=1
-  [Paired Wilcoxon + Holm (14 baselines) — RMST_300 (s)]: max p_Holm = 1
-    vs 6TiSCH-MC (1S) (n=5)        : p_raw=0.0625, p_Holm=0.875
-    vs 6TiSCH-MC (Tuned 4S) (n=5)  : p_raw=0.0625, p_Holm=0.875
-    vs 6TiSCH-MC (Default 26S) (n=5): p_raw=0.125, p_Holm=1
-    vs CSMJ (n=5)                  : p_raw=0.0625, p_Holm=0.875
-    vs ATP: 2 (n=5)                : p_raw=0.0625, p_Holm=0.875
-    vs EDBA-SA (n=5)               : p_raw=0.4375, p_Holm=1
-    vs ECV-SA (n=5)                : p_raw=0.1875, p_Holm=1
-    vs Pairing (1S) (n=5)          : p_raw=0.3125, p_Holm=1
-    vs Pairing (Tuned 2S) (n=5)    : p_raw=0.625, p_Holm=1
-    vs TRGB (1S) (n=5)             : p_raw=0.8125, p_Holm=1
-    vs TRGB (Tuned 2S) (n=5)       : p_raw=1, p_Holm=1
-    vs EBMC (1S) (n=5)             : p_raw=0.3125, p_Holm=1
-    vs EBMC (Tuned 2S) (n=5)       : p_raw=0.8125, p_Holm=1
-    vs EASE (n=5)                  : p_raw=0.625, p_Holm=1
+  e                  (n=26): comp= 37.6% | RMST300=236.5s | m_join=130.6s (sync= 15.6s+rpl=115.0s) | coll(T/S/X)=8835/54/0 | sw=0.00 | slot0_DC=0.100% | form_DC=25.46% | e_sh=  15.6mJ | E300=13.34J | nbr(50/95/99)=1.0/1.0/1.0 | c_i=1.00 h=0.00 n_w=7.79
+  mc_4s              (n=30): comp= 47.6% | RMST300=216.8s | m_join=124.6s (sync= 39.7s+rpl= 85.0s) | coll(T/S/X)=836/2008/0 | sw=0.88 | slot0_DC=0.179% | form_DC=25.88% | e_sh=  28.0mJ | E300=12.24J | nbr(50/95/99)=2.0/4.2/4.9 | c_i=1.00 h=0.00 n_w=9.35
+  mc_26s             (n=30): comp= 76.8% | RMST300=185.9s | m_join=151.4s (sync= 85.8s+rpl= 65.6s) | coll(T/S/X)=44/535/0 | sw=1.31 | slot0_DC=0.234% | form_DC=36.87% | e_sh=  36.6mJ | E300=10.51J | nbr(50/95/99)=5.1/8.9/9.7 | c_i=1.00 h=0.00 n_w=15.75
+  c                  (n=30): comp= 31.5% | RMST300=241.9s | m_join=115.2s (sync= 37.2s+rpl= 78.0s) | coll(T/S/X)=1913/1978/0 | sw=0.47 | slot0_DC=0.154% | form_DC=35.73% | e_sh=  24.1mJ | E300=13.65J | nbr(50/95/99)=1.0/2.8/3.2 | c_i=1.00 h=0.00 n_w=5.77
+  a_2                (n=30): comp= 61.6% | RMST300=181.7s | m_join=108.0s (sync= 14.2s+rpl= 93.7s) | coll(T/S/X)=21559/7084/0 | sw=0.54 | slot0_DC=0.229% | form_DC=33.20% | e_sh=  35.9mJ | E300=10.27J | nbr(50/95/99)=2.7/7.1/8.8 | c_i=1.90 h=0.00 n_w=8.64
+  r                  (n=30): comp= 85.9% | RMST300=143.6s | m_join=118.0s (sync= 14.3s+rpl=103.7s) | coll(T/S/X)=1210/14814/0 | sw=0.88 | slot0_DC=0.126% | form_DC= 4.90% | e_sh=  19.7mJ | E300= 8.12J | nbr(50/95/99)=2.6/5.9/7.5 | c_i=9.95 h=0.00 n_w=1.99
+  d                  (n=30): comp= 68.5% | RMST300=173.8s | m_join=114.7s (sync= 13.3s+rpl=101.4s) | coll(T/S/X)=1004/11159/0 | sw=0.77 | slot0_DC=0.132% | form_DC= 5.47% | e_sh=  20.7mJ | E300= 9.82J | nbr(50/95/99)=2.4/6.8/9.1 | c_i=9.25 h=0.00 n_w=1.73
+  pair               (n=30): comp= 94.1% | RMST300=129.3s | m_join=118.6s (sync= 15.5s+rpl=103.1s) | coll(T/S/X)=2705/16690/0 | sw=0.99 | slot0_DC=0.129% | form_DC= 5.61% | e_sh=  20.1mJ | E300= 7.31J | nbr(50/95/99)=3.1/7.4/9.3 | c_i=10.42 h=0.00 n_w=2.21
+  pair_2s            (n=30): comp= 92.4% | RMST300=133.5s | m_join=120.0s (sync= 19.4s+rpl=100.6s) | coll(T/S/X)=1044/10250/0 | sw=1.30 | slot0_DC=0.178% | form_DC= 6.86% | e_sh=  27.8mJ | E300= 7.56J | nbr(50/95/99)=4.7/8.8/10.2 | c_i=10.61 h=0.00 n_w=2.11
+  t                  (n=30): comp= 91.2% | RMST300=131.9s | m_join=116.1s (sync= 20.3s+rpl= 95.8s) | coll(T/S/X)=1758/8407/0 | sw=1.20 | slot0_DC=0.197% | form_DC= 7.37% | e_sh=  30.8mJ | E300= 7.47J | nbr(50/95/99)=5.3/9.4/10.7 | c_i=8.24 h=0.00 n_w=2.66
+  trgb_2s            (n=30): comp= 89.7% | RMST300=142.0s | m_join=124.3s (sync= 28.5s+rpl= 95.8s) | coll(T/S/X)=488/4086/0 | sw=1.26 | slot0_DC=0.231% | form_DC=10.01% | e_sh=  36.1mJ | E300= 8.04J | nbr(50/95/99)=5.8/9.9/11.4 | c_i=8.53 h=0.00 n_w=2.49
+  ebmc               (n=30): comp= 79.7% | RMST300=156.6s | m_join=119.8s (sync= 18.7s+rpl=101.1s) | coll(T/S/X)=781/7811/0 | sw=1.03 | slot0_DC=0.165% | form_DC= 6.83% | e_sh=  25.9mJ | E300= 8.85J | nbr(50/95/99)=3.4/7.8/9.4 | c_i=6.33 h=0.00 n_w=2.87
+  ebmc_2s            (n=30): comp= 89.0% | RMST300=141.6s | m_join=122.2s (sync= 26.8s+rpl= 95.4s) | coll(T/S/X)=256/4058/0 | sw=1.29 | slot0_DC=0.207% | form_DC= 9.25% | e_sh=  32.5mJ | E300= 8.01J | nbr(50/95/99)=5.3/9.8/11.2 | c_i=6.52 h=0.00 n_w=3.17
+  s                  (n=30): comp= 93.4% | RMST300=130.4s | m_join=118.5s (sync= 15.6s+rpl=102.9s) | coll(T/S/X)=210/3893/0 | sw=1.25 | slot0_DC=0.217% | form_DC= 5.54% | e_sh=  34.0mJ | E300= 7.38J | nbr(50/95/99)=6.5/12.2/13.2 | c_i=10.80 h=0.00 n_w=2.08
+  ease_adapt         (n=30): comp= 93.3% | RMST300=130.8s | m_join=119.0s (sync= 18.5s+rpl=100.5s) | coll(T/S/X)=64/645/822 | sw=1.26 | slot0_DC=0.254% | form_DC= 6.60% | e_sh=  39.8mJ | E300= 7.41J | nbr(50/95/99)=6.3/11.4/12.7 | c_i=10.65 h=2.60 n_w=2.06
+  ebmc_adapt         (n=30): comp= 96.1% | RMST300=123.2s | m_join=116.2s (sync= 18.4s+rpl= 97.8s) | coll(T/S/X)=97/2298/0 | sw=1.26 | slot0_DC=0.260% | form_DC= 6.59% | e_sh=  40.8mJ | E300= 6.99J | nbr(50/95/99)=6.8/11.5/12.8 | c_i=10.70 h=0.00 n_w=2.12
+  idhash_guard_adapt (n=30): comp= 95.0% | RMST300=127.7s | m_join=118.7s (sync= 18.5s+rpl=100.2s) | coll(T/S/X)=23/694/905 | sw=1.29 | slot0_DC=0.255% | form_DC= 6.55% | e_sh=  39.9mJ | E300= 7.24J | nbr(50/95/99)=6.6/11.4/12.6 | c_i=10.81 h=2.61 n_w=2.07
+  idhash_rev         (n=30): comp= 94.5% | RMST300=127.6s | m_join=117.8s (sync= 18.5s+rpl= 99.3s) | coll(T/S/X)=24/718/887 | sw=1.29 | slot0_DC=0.254% | form_DC= 6.56% | e_sh=  39.8mJ | E300= 7.23J | nbr(50/95/99)=6.7/11.7/12.9 | c_i=10.82 h=2.66 n_w=2.07
+  assign_hyst        (n=30): comp= 85.8% | RMST300=146.3s | m_join=120.7s (sync= 18.4s+rpl=102.3s) | coll(T/S/X)=1080/12746/2352 | sw=0.80 | slot0_DC=0.142% | form_DC= 6.47% | e_sh=  22.2mJ | E300= 8.27J | nbr(50/95/99)=2.4/9.2/11.4 | c_i=7.38 h=2.53 n_w=2.67
+  assign_ref         (n=30): comp= 85.6% | RMST300=146.3s | m_join=120.3s (sync= 18.4s+rpl=101.9s) | coll(T/S/X)=1084/12716/2373 | sw=0.80 | slot0_DC=0.142% | form_DC= 6.47% | e_sh=  22.3mJ | E300= 8.27J | nbr(50/95/99)=2.4/9.3/11.5 | c_i=7.38 h=2.53 n_w=2.66
+  assign_guard       (n=30): comp= 85.4% | RMST300=146.8s | m_join=120.9s (sync= 18.3s+rpl=102.5s) | coll(T/S/X)=397/13088/2435 | sw=0.80 | slot0_DC=0.140% | form_DC= 6.39% | e_sh=  21.8mJ | E300= 8.30J | nbr(50/95/99)=2.3/9.0/11.7 | c_i=7.87 h=2.43 n_w=2.48
+  assign_both        (n=30): comp= 85.2% | RMST300=146.9s | m_join=120.4s (sync= 18.3s+rpl=102.1s) | coll(T/S/X)=393/13108/2412 | sw=0.80 | slot0_DC=0.140% | form_DC= 6.39% | e_sh=  21.9mJ | E300= 8.30J | nbr(50/95/99)=2.2/9.0/11.7 | c_i=7.87 h=2.41 n_w=2.47
+  adapt_age          (n=30): comp= 56.2% | RMST300=203.5s | m_join=128.1s (sync= 34.9s+rpl= 93.2s) | coll(T/S/X)=579/2139/0 | sw=1.05 | slot0_DC=0.191% | form_DC=21.28% | e_sh=  29.9mJ | E300=11.50J | nbr(50/95/99)=2.7/5.7/6.2 | c_i=1.00 h=0.00 n_w=11.34
+  adapt_dens         (n=26): comp= 36.5% | RMST300=237.1s | m_join=133.2s (sync= 15.8s+rpl=117.4s) | coll(T/S/X)=6588/94/0 | sw=0.01 | slot0_DC=0.117% | form_DC=25.01% | e_sh=  18.3mJ | E300=13.38J | nbr(50/95/99)=1.0/1.0/1.1 | c_i=1.00 h=0.00 n_w=7.41
+  adapt_nophase      (n=30): comp= 57.4% | RMST300=200.6s | m_join=126.3s (sync= 35.7s+rpl= 90.6s) | coll(T/S/X)=510/2086/0 | sw=0.98 | slot0_DC=0.195% | form_DC=21.07% | e_sh=  30.6mJ | E300=11.33J | nbr(50/95/99)=2.9/5.6/6.6 | c_i=1.00 h=0.00 n_w=11.41
+  adapt_full         (n=30): comp= 58.4% | RMST300=199.8s | m_join=128.3s (sync= 33.5s+rpl= 94.8s) | coll(T/S/X)=522/2054/0 | sw=1.01 | slot0_DC=0.194% | form_DC=20.40% | e_sh=  30.3mJ | E300=11.28J | nbr(50/95/99)=2.7/5.4/6.1 | c_i=1.00 h=0.00 n_w=11.61
+  define_noka        (n=30): comp= 93.5% | RMST300=127.7s | m_join=116.1s (sync= 19.7s+rpl= 96.5s) | coll(T/S/X)=63/1248/1290 | sw=1.45 | slot0_DC=0.246% | form_DC= 6.92% | e_sh=  38.5mJ | E300= 7.24J | nbr(50/95/99)=6.7/11.7/13.1 | c_i=9.77 h=2.69 n_w=2.30
+  ebmc_mrm           (n=30): comp= 78.0% | RMST300=162.6s | m_join=123.6s (sync= 20.4s+rpl=103.2s) | coll(T/S/X)=673/7307/0 | sw=1.06 | slot0_DC=0.161% | form_DC= 7.37% | e_sh=  25.2mJ | E300= 9.19J | nbr(50/95/99)=3.3/7.8/9.6 | c_i=6.28 h=0.00 n_w=2.80
+  ease_mrm           (n=30): comp= 92.3% | RMST300=135.8s | m_join=122.2s (sync= 16.8s+rpl=105.4s) | coll(T/S/X)=190/3734/0 | sw=1.24 | slot0_DC=0.211% | form_DC= 5.94% | e_sh=  33.0mJ | E300= 7.69J | nbr(50/95/99)=6.2/12.0/13.1 | c_i=10.71 h=0.00 n_w=2.06
+  define_hoptier_mrm (n=30): comp= 94.1% | RMST300=128.4s | m_join=117.8s (sync= 20.5s+rpl= 97.3s) | coll(T/S/X)=41/2025/180 | sw=1.34 | slot0_DC=0.256% | form_DC= 7.25% | e_sh=  40.1mJ | E300= 7.28J | nbr(50/95/99)=6.5/11.5/12.9 | c_i=8.57 h=1.11 n_w=2.60
+  define_mrm         (n=30): comp= 93.9% | RMST300=128.8s | m_join=117.8s (sync= 20.5s+rpl= 97.4s) | coll(T/S/X)=41/989/1011 | sw=1.33 | slot0_DC=0.252% | form_DC= 7.25% | e_sh=  39.4mJ | E300= 7.30J | nbr(50/95/99)=6.6/11.3/12.7 | c_i=9.58 h=2.57 n_w=2.31
+  define_rev         (n=30): comp= 94.8% | RMST300=130.5s | m_join=121.7s (sync= 19.6s+rpl=102.1s) | coll(T/S/X)=39/1024/1022 | sw=1.32 | slot0_DC=0.252% | form_DC= 6.98% | e_sh=  39.5mJ | E300= 7.40J | nbr(50/95/99)=6.6/11.7/12.8 | c_i=9.61 h=2.61 n_w=2.34
+  define_rand        (n=30): comp= 94.0% | RMST300=128.0s | m_join=117.5s (sync= 18.9s+rpl= 98.6s) | coll(T/S/X)=33/1086/1016 | sw=1.30 | slot0_DC=0.254% | form_DC= 6.76% | e_sh=  39.8mJ | E300= 7.26J | nbr(50/95/99)=6.4/11.2/12.4 | c_i=9.60 h=2.50 n_w=2.30
+  define_tierstart   (n=30): comp= 96.4% | RMST300=125.6s | m_join=119.2s (sync= 19.5s+rpl= 99.7s) | coll(T/S/X)=36/1031/988 | sw=1.30 | slot0_DC=0.246% | form_DC= 6.94% | e_sh=  38.5mJ | E300= 7.12J | nbr(50/95/99)=6.5/11.6/12.8 | c_i=9.77 h=2.56 n_w=2.36
+  ebmc_2s_poisson    (n=30): comp= 88.1% | RMST300=139.1s | m_join=117.4s (sync= 24.0s+rpl= 93.3s) | coll(T/S/X)=221/4023/0 | sw=1.28 | slot0_DC=0.201% | form_DC= 8.36% | e_sh=  31.4mJ | E300= 7.87J | nbr(50/95/99)=5.0/9.3/11.0 | c_i=6.10 h=0.00 n_w=3.03
+  ease_poisson       (n=30): comp= 93.7% | RMST300=124.5s | m_join=112.7s (sync= 12.6s+rpl=100.1s) | coll(T/S/X)=160/3797/0 | sw=1.25 | slot0_DC=0.209% | form_DC= 4.51% | e_sh=  32.7mJ | E300= 7.05J | nbr(50/95/99)=6.5/11.9/13.2 | c_i=9.86 h=0.00 n_w=2.03
+  define_poisson     (n=30): comp= 92.8% | RMST300=130.7s | m_join=118.2s (sync= 20.0s+rpl= 98.2s) | coll(T/S/X)=42/967/897 | sw=1.40 | slot0_DC=0.240% | form_DC= 7.14% | e_sh=  37.6mJ | E300= 7.40J | nbr(50/95/99)=6.2/10.5/12.1 | c_i=8.89 h=2.54 n_w=2.18
+  define_late        (n=30): comp= 93.4% | RMST300=119.0s | m_join=106.3s (sync= 16.2s+rpl= 90.1s) | coll(T/S/X)=42/859/889 | sw=1.24 | slot0_DC=0.233% | form_DC= 5.79% | e_sh=  36.5mJ | E300= 6.75J | nbr(50/95/99)=6.3/10.9/12.5 | c_i=8.69 h=2.54 n_w=2.06
+  define_fail        (n=30): comp= 94.2% | RMST300=129.4s | m_join=119.1s (sync= 19.5s+rpl= 99.6s) | coll(T/S/X)=40/953/897 | sw=1.27 | slot0_DC=0.236% | form_DC= 6.94% | e_sh=  36.9mJ | E300= 7.33J | nbr(50/95/99)=5.8/11.4/12.7 | c_i=9.34 h=2.51 n_w=2.34
+  define_mixed       (n=30): comp= 92.8% | RMST300=128.7s | m_join=115.4s (sync= 20.7s+rpl= 94.6s) | coll(T/S/X)=47/689/683 | sw=1.45 | slot0_DC=0.257% | form_DC= 7.30% | e_sh=  40.2mJ | E300= 7.30J | nbr(50/95/99)=6.3/11.4/12.8 | c_i=8.96 h=2.18 n_w=2.36
+  p                  (n=30): comp= 95.7% | RMST300=127.3s | m_join=119.8s (sync= 19.5s+rpl=100.3s) | coll(T/S/X)=39/983/1030 | sw=1.29 | slot0_DC=0.246% | form_DC= 6.95% | e_sh=  38.6mJ | E300= 7.22J | nbr(50/95/99)=6.5/11.6/12.6 | c_i=9.75 h=2.56 n_w=2.34
+  [Paired Wilcoxon + Holm (14 baselines) — DODAG Completion (%)]: max p_Holm = 0.0731927
+    vs 6TiSCH-MC (1S) (n=26)       : p_raw=8.64344e-06, p_Holm=6.05041e-05
+    vs 6TiSCH-MC (Tuned 4S) (n=30) : p_raw=1.78458e-06, p_Holm=2.49841e-05
+    vs 6TiSCH-MC (Default 26S) (n=30): p_raw=1.80262e-06, p_Holm=2.49841e-05
+    vs CSMJ (n=30)                 : p_raw=1.79133e-06, p_Holm=2.49841e-05
+    vs ATP: 2 (n=30)               : p_raw=1.79584e-06, p_Holm=2.49841e-05
+    vs EDBA-SA (n=30)              : p_raw=1.9777e-06, p_Holm=2.49841e-05
+    vs ECV-SA (n=30)               : p_raw=1.80601e-06, p_Holm=2.49841e-05
+    vs Pairing (1S) (n=30)         : p_raw=0.0731927, p_Holm=0.0731927
+    vs Pairing (Tuned 2S) (n=30)   : p_raw=0.00519094, p_Holm=0.0155728
+    vs TRGB (1S) (n=30)            : p_raw=0.000787752, p_Holm=0.00315101
+    vs TRGB (Tuned 2S) (n=30)      : p_raw=2.95455e-05, p_Holm=0.000147728
+    vs EBMC (1S) (n=30)            : p_raw=1.80828e-06, p_Holm=2.49841e-05
+    vs EBMC (Tuned 2S) (n=30)      : p_raw=1.06056e-05, p_Holm=6.36339e-05
+    vs EASE (n=30)                 : p_raw=0.00923559, p_Holm=0.0184712
+  [Paired Wilcoxon + Holm (14 baselines) — RMST_300 (s)]: max p_Holm = 0.844915
+    vs 6TiSCH-MC (1S) (n=26)       : p_raw=8.80367e-06, p_Holm=7.04294e-05
+    vs 6TiSCH-MC (Tuned 4S) (n=30) : p_raw=1.82537e-06, p_Holm=2.55552e-05
+    vs 6TiSCH-MC (Default 26S) (n=30): p_raw=2.02127e-06, p_Holm=2.55552e-05
+    vs CSMJ (n=30)                 : p_raw=1.82537e-06, p_Holm=2.55552e-05
+    vs ATP: 2 (n=30)               : p_raw=1.82537e-06, p_Holm=2.55552e-05
+    vs EDBA-SA (n=30)              : p_raw=9.30693e-05, p_Holm=0.000651485
+    vs ECV-SA (n=30)               : p_raw=2.47535e-06, p_Holm=2.55552e-05
+    vs Pairing (1S) (n=30)         : p_raw=0.459021, p_Holm=0.844915
+    vs Pairing (Tuned 2S) (n=30)   : p_raw=0.174619, p_Holm=0.523857
+    vs TRGB (1S) (n=30)            : p_raw=0.422457, p_Holm=0.844915
+    vs TRGB (Tuned 2S) (n=30)      : p_raw=0.0042498, p_Holm=0.021249
+    vs EBMC (1S) (n=30)            : p_raw=4.96713e-06, p_Holm=4.47042e-05
+    vs EBMC (Tuned 2S) (n=30)      : p_raw=0.00249831, p_Holm=0.0149899
+    vs EASE (n=30)                 : p_raw=0.113248, p_Holm=0.452991
   [Paired Wilcoxon + Holm (14 baselines) — Cond. Mean Join Time (s)]: max p_Holm = 1
-    vs 6TiSCH-MC (1S) (n=5)        : p_raw=1, p_Holm=1
-    vs 6TiSCH-MC (Tuned 4S) (n=5)  : p_raw=1, p_Holm=1
-    vs 6TiSCH-MC (Default 26S) (n=5): p_raw=0.1875, p_Holm=1
-    vs CSMJ (n=5)                  : p_raw=0.0625, p_Holm=0.875
-    vs ATP: 2 (n=5)                : p_raw=0.0625, p_Holm=0.875
-    vs EDBA-SA (n=5)               : p_raw=0.3125, p_Holm=1
-    vs ECV-SA (n=5)                : p_raw=0.625, p_Holm=1
-    vs Pairing (1S) (n=5)          : p_raw=0.1875, p_Holm=1
-    vs Pairing (Tuned 2S) (n=5)    : p_raw=0.3125, p_Holm=1
-    vs TRGB (1S) (n=5)             : p_raw=0.3125, p_Holm=1
-    vs TRGB (Tuned 2S) (n=5)       : p_raw=0.8125, p_Holm=1
-    vs EBMC (1S) (n=5)             : p_raw=0.8125, p_Holm=1
-    vs EBMC (Tuned 2S) (n=5)       : p_raw=0.625, p_Holm=1
-    vs EASE (n=5)                  : p_raw=0.125, p_Holm=1
+    vs 6TiSCH-MC (1S) (n=26)       : p_raw=0.559117, p_Holm=1
+    vs 6TiSCH-MC (Tuned 4S) (n=30) : p_raw=0.155836, p_Holm=1
+    vs 6TiSCH-MC (Default 26S) (n=30): p_raw=2.73765e-06, p_Holm=3.8327e-05
+    vs CSMJ (n=30)                 : p_raw=0.181242, p_Holm=1
+    vs ATP: 2 (n=30)               : p_raw=0.000927964, p_Holm=0.0120635
+    vs EDBA-SA (n=30)              : p_raw=0.77338, p_Holm=1
+    vs ECV-SA (n=30)               : p_raw=0.232884, p_Holm=1
+    vs Pairing (1S) (n=30)         : p_raw=0.869301, p_Holm=1
+    vs Pairing (Tuned 2S) (n=30)   : p_raw=0.98359, p_Holm=1
+    vs TRGB (1S) (n=30)            : p_raw=0.266702, p_Holm=1
+    vs TRGB (Tuned 2S) (n=30)      : p_raw=0.241038, p_Holm=1
+    vs EBMC (1S) (n=30)            : p_raw=0.821006, p_Holm=1
+    vs EBMC (Tuned 2S) (n=30)      : p_raw=0.28482, p_Holm=1
+    vs EASE (n=30)                 : p_raw=1, p_Holm=1
 
 --- Benchmark N = 500 (100m x 100m, C=16, S=61, I_eb=1S, T_max=300s) ---
-  e                  (n= 4): comp= 39.4% | RMST300=245.6s | m_join=161.3s (sync= 48.4s+rpl=112.9s) | coll(T/S/X)=39995/66/0 | sw=0.00 | slot0_DC=0.081% | form_DC=34.47% | e_sh=  12.7mJ | E300=13.86J | nbr(50/95/99)=1.0/1.0/1.0 | c_i=1.00 h=0.00 n_w=38.63
-  mc_4s              (n= 5): comp= 20.9% | RMST300=266.6s | m_join=141.2s (sync= 56.0s+rpl= 85.2s) | coll(T/S/X)=1233/3496/0 | sw=0.76 | slot0_DC=0.129% | form_DC=50.47% | e_sh=  20.2mJ | E300=15.04J | nbr(50/95/99)=1.0/3.0/3.8 | c_i=1.00 h=0.00 n_w=18.30
-  mc_26s             (n= 5): comp= 38.9% | RMST300=244.6s | m_join=158.2s (sync= 87.7s+rpl= 70.5s) | coll(T/S/X)=62/1233/0 | sw=1.19 | slot0_DC=0.162% | form_DC=51.43% | e_sh=  25.4mJ | E300=13.81J | nbr(50/95/99)=2.2/5.0/6.0 | c_i=1.00 h=0.00 n_w=30.88
-  c                  (n= 5): comp= 13.8% | RMST300=277.4s | m_join=132.2s (sync= 78.2s+rpl= 54.0s) | coll(T/S/X)=3184/3661/0 | sw=0.34 | slot0_DC=0.123% | form_DC=68.88% | e_sh=  19.3mJ | E300=15.65J | nbr(50/95/99)=1.0/1.8/2.2 | c_i=1.00 h=0.00 n_w=13.05
-  a_2                (n= 5): comp= 42.5% | RMST300=214.2s | m_join= 97.2s (sync= 19.3s+rpl= 77.9s) | coll(T/S/X)=74028/16788/0 | sw=0.41 | slot0_DC=0.213% | form_DC=31.54% | e_sh=  33.4mJ | E300=12.09J | nbr(50/95/99)=1.2/3.2/4.6 | c_i=1.98 h=0.00 n_w=22.35
-  r                  (n= 5): comp= 45.8% | RMST300=212.6s | m_join=108.6s (sync= 11.8s+rpl= 96.8s) | coll(T/S/X)=2617/40207/0 | sw=0.68 | slot0_DC=0.112% | form_DC= 5.23% | e_sh=  17.6mJ | E300=12.00J | nbr(50/95/99)=1.0/3.0/3.4 | c_i=12.95 h=0.00 n_w=3.34
-  d                  (n= 5): comp= 31.2% | RMST300=239.1s | m_join=102.9s (sync=  8.6s+rpl= 94.3s) | coll(T/S/X)=1671/30031/0 | sw=0.30 | slot0_DC=0.127% | form_DC= 6.15% | e_sh=  19.9mJ | E300=13.49J | nbr(50/95/99)=1.0/2.1/2.6 | c_i=12.34 h=0.00 n_w=2.57
-  pair               (n= 5): comp= 68.0% | RMST300=166.2s | m_join=103.5s (sync= 13.7s+rpl= 89.8s) | coll(T/S/X)=7877/53786/0 | sw=0.86 | slot0_DC=0.112% | form_DC= 6.80% | e_sh=  17.6mJ | E300= 9.38J | nbr(50/95/99)=1.8/4.6/6.2 | c_i=13.86 h=0.00 n_w=5.07
-  pair_2s            (n= 5): comp= 66.1% | RMST300=181.4s | m_join=120.1s (sync= 15.3s+rpl=104.7s) | coll(T/S/X)=2181/30179/0 | sw=1.01 | slot0_DC=0.133% | form_DC= 7.05% | e_sh=  20.9mJ | E300=10.24J | nbr(50/95/99)=2.0/5.2/6.5 | c_i=14.06 h=0.00 n_w=4.80
-  t                  (n= 5): comp= 65.2% | RMST300=176.9s | m_join=111.1s (sync= 18.4s+rpl= 92.8s) | coll(T/S/X)=3768/25376/0 | sw=0.98 | slot0_DC=0.147% | form_DC= 7.95% | e_sh=  23.0mJ | E300= 9.99J | nbr(50/95/99)=2.0/4.8/6.9 | c_i=10.68 h=0.00 n_w=6.39
-  trgb_2s            (n= 5): comp= 65.5% | RMST300=183.1s | m_join=121.3s (sync= 26.0s+rpl= 95.4s) | coll(T/S/X)=1018/13451/0 | sw=1.03 | slot0_DC=0.165% | form_DC=10.28% | e_sh=  25.9mJ | E300=10.35J | nbr(50/95/99)=2.0/5.0/7.3 | c_i=11.18 h=0.00 n_w=5.96
-  ebmc               (n= 5): comp= 47.0% | RMST300=212.0s | m_join=111.7s (sync= 15.6s+rpl= 96.1s) | coll(T/S/X)=1494/21979/0 | sw=0.81 | slot0_DC=0.136% | form_DC= 7.57% | e_sh=  21.4mJ | E300=11.97J | nbr(50/95/99)=1.2/3.2/4.2 | c_i=7.38 h=0.00 n_w=6.12
-  ebmc_2s            (n= 5): comp= 52.7% | RMST300=205.1s | m_join=119.2s (sync= 22.6s+rpl= 96.6s) | coll(T/S/X)=455/11908/0 | sw=1.06 | slot0_DC=0.160% | form_DC= 8.91% | e_sh=  25.0mJ | E300=11.58J | nbr(50/95/99)=1.8/4.2/5.4 | c_i=7.42 h=0.00 n_w=6.80
-  s                  (n= 5): comp= 58.6% | RMST300=192.3s | m_join=115.9s (sync= 12.4s+rpl=103.5s) | coll(T/S/X)=1207/21945/0 | sw=0.92 | slot0_DC=0.155% | form_DC= 4.96% | e_sh=  24.2mJ | E300=10.86J | nbr(50/95/99)=2.0/5.5/6.7 | c_i=13.80 h=0.00 n_w=4.12
-  ease_adapt         (n= 5): comp= 59.9% | RMST300=181.3s | m_join=101.8s (sync= 15.3s+rpl= 86.5s) | coll(T/S/X)=149/5379/3199 | sw=1.03 | slot0_DC=0.214% | form_DC= 5.51% | e_sh=  33.6mJ | E300=10.24J | nbr(50/95/99)=2.4/5.2/6.4 | c_i=13.73 h=2.51 n_w=3.86
-  ebmc_adapt         (n= 5): comp= 66.7% | RMST300=171.8s | m_join=107.8s (sync= 16.0s+rpl= 91.8s) | coll(T/S/X)=255/9454/0 | sw=0.92 | slot0_DC=0.205% | form_DC= 6.07% | e_sh=  32.2mJ | E300= 9.71J | nbr(50/95/99)=2.2/5.6/7.3 | c_i=13.97 h=0.00 n_w=4.51
-  idhash_guard_adapt (n= 5): comp= 63.5% | RMST300=179.5s | m_join=109.9s (sync= 15.1s+rpl= 94.8s) | coll(T/S/X)=48/5693/3189 | sw=1.01 | slot0_DC=0.204% | form_DC= 5.51% | e_sh=  31.9mJ | E300=10.15J | nbr(50/95/99)=2.0/5.1/7.3 | c_i=13.90 h=2.46 n_w=4.30
-  idhash_rev         (n= 5): comp= 61.8% | RMST300=180.2s | m_join=106.4s (sync= 15.1s+rpl= 91.2s) | coll(T/S/X)=57/5737/3473 | sw=1.06 | slot0_DC=0.215% | form_DC= 5.45% | e_sh=  33.6mJ | E300=10.18J | nbr(50/95/99)=2.4/5.8/7.8 | c_i=13.90 h=2.56 n_w=4.03
-  assign_hyst        (n= 5): comp= 64.4% | RMST300=169.2s | m_join= 97.0s (sync= 17.1s+rpl= 79.9s) | coll(T/S/X)=1446/50218/1246 | sw=0.84 | slot0_DC=0.144% | form_DC= 9.26% | e_sh=  22.5mJ | E300= 9.56J | nbr(50/95/99)=1.4/6.6/9.0 | c_i=8.43 h=1.97 n_w=6.85
-  assign_ref         (n= 5): comp= 64.4% | RMST300=169.2s | m_join= 97.0s (sync= 17.1s+rpl= 79.9s) | coll(T/S/X)=1446/50218/1246 | sw=0.84 | slot0_DC=0.144% | form_DC= 9.26% | e_sh=  22.5mJ | E300= 9.56J | nbr(50/95/99)=1.4/6.6/9.0 | c_i=8.43 h=1.97 n_w=6.85
-  assign_guard       (n= 5): comp= 66.1% | RMST300=167.8s | m_join=100.0s (sync= 17.0s+rpl= 83.0s) | coll(T/S/X)=755/51584/1041 | sw=0.83 | slot0_DC=0.142% | form_DC= 6.75% | e_sh=  22.3mJ | E300= 9.48J | nbr(50/95/99)=1.4/6.2/7.8 | c_i=9.26 h=1.94 n_w=6.51
-  assign_both        (n= 5): comp= 66.1% | RMST300=167.8s | m_join=100.0s (sync= 17.0s+rpl= 83.0s) | coll(T/S/X)=755/51584/1041 | sw=0.83 | slot0_DC=0.142% | form_DC= 6.75% | e_sh=  22.3mJ | E300= 9.48J | nbr(50/95/99)=1.4/6.2/7.8 | c_i=9.26 h=1.94 n_w=6.51
-  adapt_age          (n= 5): comp= 24.2% | RMST300=252.8s | m_join=104.3s (sync= 48.7s+rpl= 55.5s) | coll(T/S/X)=902/4437/0 | sw=0.57 | slot0_DC=0.162% | form_DC=53.29% | e_sh=  25.3mJ | E300=14.26J | nbr(50/95/99)=1.2/3.2/4.1 | c_i=1.00 h=0.00 n_w=22.48
-  adapt_dens         (n= 5): comp= 37.7% | RMST300=234.8s | m_join=125.2s (sync= 39.7s+rpl= 85.6s) | coll(T/S/X)=33575/148/0 | sw=0.00 | slot0_DC=0.116% | form_DC=34.34% | e_sh=  18.1mJ | E300=13.25J | nbr(50/95/99)=1.0/1.0/1.0 | c_i=1.00 h=0.00 n_w=37.14
-  adapt_nophase      (n= 5): comp= 26.1% | RMST300=251.5s | m_join=114.6s (sync= 47.6s+rpl= 67.1s) | coll(T/S/X)=777/4126/0 | sw=0.66 | slot0_DC=0.149% | form_DC=49.70% | e_sh=  23.3mJ | E300=14.19J | nbr(50/95/99)=1.3/3.8/5.2 | c_i=1.00 h=0.00 n_w=24.03
-  adapt_full         (n= 5): comp= 23.1% | RMST300=255.6s | m_join=108.3s (sync= 44.5s+rpl= 63.9s) | coll(T/S/X)=747/3807/0 | sw=0.57 | slot0_DC=0.165% | form_DC=49.62% | e_sh=  25.8mJ | E300=14.42J | nbr(50/95/99)=1.2/3.8/5.2 | c_i=1.00 h=0.00 n_w=21.21
-  define_noka        (n= 5): comp= 71.6% | RMST300=158.8s | m_join=102.8s (sync= 15.8s+rpl= 87.0s) | coll(T/S/X)=175/10143/2628 | sw=1.27 | slot0_DC=0.182% | form_DC= 5.79% | e_sh=  28.6mJ | E300= 8.97J | nbr(50/95/99)=2.8/5.6/7.9 | c_i=11.49 h=2.68 n_w=6.38
-  ebmc_mrm           (n= 5): comp= 43.3% | RMST300=225.7s | m_join=127.9s (sync= 17.4s+rpl=110.5s) | coll(T/S/X)=1162/19209/0 | sw=0.76 | slot0_DC=0.126% | form_DC= 8.00% | e_sh=  19.8mJ | E300=12.74J | nbr(50/95/99)=1.0/3.4/5.4 | c_i=7.39 h=0.00 n_w=5.78
-  ease_mrm           (n= 5): comp= 52.7% | RMST300=200.8s | m_join=112.4s (sync= 13.2s+rpl= 99.1s) | coll(T/S/X)=1361/20784/0 | sw=0.83 | slot0_DC=0.150% | form_DC= 5.27% | e_sh=  23.5mJ | E300=11.34J | nbr(50/95/99)=1.8/5.0/7.2 | c_i=13.55 h=0.00 n_w=3.75
-  define_hoptier_mrm (n= 5): comp= 69.0% | RMST300=169.7s | m_join=111.2s (sync= 17.5s+rpl= 93.6s) | coll(T/S/X)=85/8595/690 | sw=1.15 | slot0_DC=0.195% | form_DC= 6.49% | e_sh=  30.5mJ | E300= 9.59J | nbr(50/95/99)=2.2/5.2/6.5 | c_i=10.99 h=1.20 n_w=6.12
-  define_mrm         (n= 5): comp= 66.6% | RMST300=170.5s | m_join=106.0s (sync= 17.4s+rpl= 88.5s) | coll(T/S/X)=86/6856/2315 | sw=1.12 | slot0_DC=0.200% | form_DC= 6.51% | e_sh=  31.3mJ | E300= 9.64J | nbr(50/95/99)=2.0/4.9/6.6 | c_i=10.85 h=2.52 n_w=6.13
-  define_rev         (n= 5): comp= 71.4% | RMST300=160.4s | m_join=104.6s (sync= 16.3s+rpl= 88.3s) | coll(T/S/X)=103/7270/2604 | sw=1.23 | slot0_DC=0.204% | form_DC= 5.83% | e_sh=  32.0mJ | E300= 9.07J | nbr(50/95/99)=2.6/5.6/7.2 | c_i=11.23 h=2.68 n_w=6.07
-  define_rand        (n= 5): comp= 67.8% | RMST300=169.7s | m_join=108.1s (sync= 17.3s+rpl= 90.9s) | coll(T/S/X)=87/6651/2550 | sw=1.15 | slot0_DC=0.200% | form_DC= 6.21% | e_sh=  31.3mJ | E300= 9.59J | nbr(50/95/99)=2.2/5.6/6.8 | c_i=11.06 h=2.63 n_w=5.85
-  define_tierstart   (n= 5): comp= 71.0% | RMST300=159.1s | m_join=101.7s (sync= 16.1s+rpl= 85.6s) | coll(T/S/X)=100/7297/2500 | sw=1.23 | slot0_DC=0.203% | form_DC= 5.79% | e_sh=  31.8mJ | E300= 9.00J | nbr(50/95/99)=2.4/6.2/8.3 | c_i=10.89 h=2.67 n_w=6.11
-  ebmc_2s_poisson    (n= 5): comp= 46.1% | RMST300=206.3s | m_join= 96.6s (sync= 10.4s+rpl= 86.2s) | coll(T/S/X)=382/9227/0 | sw=1.09 | slot0_DC=0.133% | form_DC= 4.34% | e_sh=  20.8mJ | E300=11.65J | nbr(50/95/99)=2.0/4.5/6.4 | c_i=5.66 h=0.00 n_w=4.32
-  ease_poisson       (n= 5): comp= 48.8% | RMST300=202.8s | m_join=100.2s (sync=  5.7s+rpl= 94.5s) | coll(T/S/X)=628/14918/0 | sw=1.04 | slot0_DC=0.113% | form_DC= 2.22% | e_sh=  17.7mJ | E300=11.45J | nbr(50/95/99)=2.0/4.8/7.0 | c_i=9.98 h=0.00 n_w=2.79
-  define_poisson     (n= 5): comp= 65.0% | RMST300=163.3s | m_join= 89.6s (sync= 10.1s+rpl= 79.5s) | coll(T/S/X)=88/4983/2217 | sw=1.38 | slot0_DC=0.171% | form_DC= 3.60% | e_sh=  26.8mJ | E300= 9.23J | nbr(50/95/99)=2.6/4.9/6.5 | c_i=8.28 h=2.86 n_w=3.86
-  define_late        (n= 5): comp= 61.9% | RMST300=178.9s | m_join=104.1s (sync= 15.1s+rpl= 89.1s) | coll(T/S/X)=77/6487/2259 | sw=1.09 | slot0_DC=0.202% | form_DC= 5.03% | e_sh=  31.7mJ | E300=10.11J | nbr(50/95/99)=2.4/5.4/7.4 | c_i=10.44 h=2.50 n_w=5.20
-  define_fail        (n= 5): comp= 70.6% | RMST300=159.5s | m_join=101.3s (sync= 16.1s+rpl= 85.2s) | coll(T/S/X)=73/6716/2308 | sw=1.19 | slot0_DC=0.189% | form_DC= 5.78% | e_sh=  29.6mJ | E300= 9.02J | nbr(50/95/99)=2.2/5.6/7.4 | c_i=10.68 h=2.58 n_w=6.21
-  define_mixed       (n= 5): comp= 22.5% | RMST300=258.6s | m_join=115.3s (sync= 12.4s+rpl=102.8s) | coll(T/S/X)=741/5310/91 | sw=0.52 | slot0_DC=0.161% | form_DC=12.18% | e_sh=  25.1mJ | E300=14.59J | nbr(50/95/99)=1.0/3.2/3.6 | c_i=6.90 h=1.00 n_w=3.15
-  p                  (n= 5): comp= 71.0% | RMST300=159.1s | m_join=101.7s (sync= 16.1s+rpl= 85.6s) | coll(T/S/X)=100/7297/2500 | sw=1.23 | slot0_DC=0.203% | form_DC= 5.79% | e_sh=  31.8mJ | E300= 9.00J | nbr(50/95/99)=2.4/6.2/8.3 | c_i=10.89 h=2.67 n_w=6.11
-  [Paired Wilcoxon + Holm (14 baselines) — DODAG Completion (%)]: max p_Holm = 0.875
-    vs 6TiSCH-MC (1S) (n=4)        : p_raw=0.125, p_Holm=0.875
-    vs 6TiSCH-MC (Tuned 4S) (n=5)  : p_raw=0.0625, p_Holm=0.875
-    vs 6TiSCH-MC (Default 26S) (n=5): p_raw=0.0625, p_Holm=0.875
-    vs CSMJ (n=5)                  : p_raw=0.0625, p_Holm=0.875
-    vs ATP: 2 (n=5)                : p_raw=0.0625, p_Holm=0.875
-    vs EDBA-SA (n=5)               : p_raw=0.0625, p_Holm=0.875
-    vs ECV-SA (n=5)                : p_raw=0.0625, p_Holm=0.875
-    vs Pairing (1S) (n=5)          : p_raw=0.416366, p_Holm=0.875
-    vs Pairing (Tuned 2S) (n=5)    : p_raw=0.0625, p_Holm=0.875
-    vs TRGB (1S) (n=5)             : p_raw=0.125, p_Holm=0.875
-    vs TRGB (Tuned 2S) (n=5)       : p_raw=0.1875, p_Holm=0.875
-    vs EBMC (1S) (n=5)             : p_raw=0.0625, p_Holm=0.875
-    vs EBMC (Tuned 2S) (n=5)       : p_raw=0.0625, p_Holm=0.875
-    vs EASE (n=5)                  : p_raw=0.0625, p_Holm=0.875
-  [Paired Wilcoxon + Holm (14 baselines) — RMST_300 (s)]: max p_Holm = 1
-    vs 6TiSCH-MC (1S) (n=4)        : p_raw=0.125, p_Holm=0.875
-    vs 6TiSCH-MC (Tuned 4S) (n=5)  : p_raw=0.0625, p_Holm=0.875
-    vs 6TiSCH-MC (Default 26S) (n=5): p_raw=0.0625, p_Holm=0.875
-    vs CSMJ (n=5)                  : p_raw=0.0625, p_Holm=0.875
-    vs ATP: 2 (n=5)                : p_raw=0.0625, p_Holm=0.875
-    vs EDBA-SA (n=5)               : p_raw=0.0625, p_Holm=0.875
-    vs ECV-SA (n=5)                : p_raw=0.0625, p_Holm=0.875
-    vs Pairing (1S) (n=5)          : p_raw=1, p_Holm=1
-    vs Pairing (Tuned 2S) (n=5)    : p_raw=0.0625, p_Holm=0.875
-    vs TRGB (1S) (n=5)             : p_raw=0.125, p_Holm=0.875
-    vs TRGB (Tuned 2S) (n=5)       : p_raw=0.0625, p_Holm=0.875
-    vs EBMC (1S) (n=5)             : p_raw=0.0625, p_Holm=0.875
-    vs EBMC (Tuned 2S) (n=5)       : p_raw=0.0625, p_Holm=0.875
-    vs EASE (n=5)                  : p_raw=0.0625, p_Holm=0.875
+  e                  (n=24): comp= 37.1% | RMST300=231.5s | m_join=112.0s (sync= 21.0s+rpl= 91.0s) | coll(T/S/X)=44392/213/0 | sw=0.00 | slot0_DC=0.098% | form_DC=30.00% | e_sh=  15.3mJ | E300=13.06J | nbr(50/95/99)=1.0/1.0/1.0 | c_i=1.00 h=0.00 n_w=35.84
+  mc_4s              (n=30): comp= 20.0% | RMST300=265.8s | m_join=128.7s (sync= 51.8s+rpl= 76.9s) | coll(T/S/X)=1240/3585/0 | sw=0.72 | slot0_DC=0.140% | form_DC=50.94% | e_sh=  22.0mJ | E300=15.00J | nbr(50/95/99)=1.1/2.9/4.0 | c_i=1.00 h=0.00 n_w=17.59
+  mc_26s             (n=30): comp= 37.9% | RMST300=240.4s | m_join=143.2s (sync= 74.8s+rpl= 68.4s) | coll(T/S/X)=70/1329/0 | sw=1.20 | slot0_DC=0.180% | form_DC=49.68% | e_sh=  28.2mJ | E300=13.57J | nbr(50/95/99)=2.2/5.2/6.5 | c_i=1.00 h=0.00 n_w=30.46
+  c                  (n=30): comp= 14.9% | RMST300=274.8s | m_join=130.2s (sync= 71.6s+rpl= 58.6s) | coll(T/S/X)=3768/3881/0 | sw=0.29 | slot0_DC=0.126% | form_DC=66.71% | e_sh=  19.7mJ | E300=15.50J | nbr(50/95/99)=1.0/1.6/2.1 | c_i=1.00 h=0.00 n_w=14.42
+  a_2                (n=30): comp= 41.3% | RMST300=219.0s | m_join=105.5s (sync= 25.9s+rpl= 79.5s) | coll(T/S/X)=69025/16022/0 | sw=0.48 | slot0_DC=0.202% | form_DC=35.72% | e_sh=  31.6mJ | E300=12.37J | nbr(50/95/99)=1.2/3.2/4.7 | c_i=1.95 h=0.00 n_w=23.49
+  r                  (n=30): comp= 47.9% | RMST300=210.2s | m_join=112.2s (sync= 11.1s+rpl=101.1s) | coll(T/S/X)=2565/40147/0 | sw=0.69 | slot0_DC=0.109% | form_DC= 4.91% | e_sh=  17.0mJ | E300=11.86J | nbr(50/95/99)=1.1/2.9/3.7 | c_i=13.22 h=0.00 n_w=3.50
+  d                  (n=30): comp= 33.8% | RMST300=234.1s | m_join=104.2s (sync=  9.0s+rpl= 95.3s) | coll(T/S/X)=2106/32115/0 | sw=0.43 | slot0_DC=0.125% | form_DC= 5.61% | e_sh=  19.7mJ | E300=13.21J | nbr(50/95/99)=1.0/2.6/3.8 | c_i=12.31 h=0.00 n_w=2.72
+  pair               (n=30): comp= 67.9% | RMST300=165.7s | m_join=102.0s (sync= 13.9s+rpl= 88.1s) | coll(T/S/X)=7661/54816/0 | sw=0.83 | slot0_DC=0.112% | form_DC= 6.90% | e_sh=  17.5mJ | E300= 9.36J | nbr(50/95/99)=1.9/4.3/6.0 | c_i=13.62 h=0.00 n_w=5.09
+  pair_2s            (n=30): comp= 67.1% | RMST300=175.9s | m_join=114.9s (sync= 16.7s+rpl= 98.2s) | coll(T/S/X)=2301/30494/0 | sw=1.01 | slot0_DC=0.134% | form_DC= 7.17% | e_sh=  20.9mJ | E300= 9.94J | nbr(50/95/99)=2.0/4.8/6.4 | c_i=14.08 h=0.00 n_w=4.90
+  t                  (n=30): comp= 64.8% | RMST300=176.7s | m_join=109.8s (sync= 18.0s+rpl= 91.9s) | coll(T/S/X)=3910/25456/0 | sw=0.96 | slot0_DC=0.149% | form_DC= 7.93% | e_sh=  23.4mJ | E300= 9.98J | nbr(50/95/99)=2.0/4.6/6.2 | c_i=10.67 h=0.00 n_w=6.24
+  trgb_2s            (n=30): comp= 65.1% | RMST300=178.9s | m_join=113.7s (sync= 25.7s+rpl= 88.0s) | coll(T/S/X)=1026/13529/0 | sw=1.04 | slot0_DC=0.170% | form_DC=10.16% | e_sh=  26.6mJ | E300=10.11J | nbr(50/95/99)=2.1/4.6/6.4 | c_i=11.49 h=0.00 n_w=5.75
+  ebmc               (n=30): comp= 43.4% | RMST300=218.6s | m_join=112.5s (sync= 14.1s+rpl= 98.4s) | coll(T/S/X)=1516/20310/0 | sw=0.80 | slot0_DC=0.140% | form_DC= 7.10% | e_sh=  21.9mJ | E300=12.34J | nbr(50/95/99)=1.2/3.4/4.6 | c_i=7.30 h=0.00 n_w=5.81
+  ebmc_2s            (n=30): comp= 54.7% | RMST300=201.1s | m_join=118.9s (sync= 22.1s+rpl= 96.8s) | coll(T/S/X)=527/12369/0 | sw=0.98 | slot0_DC=0.156% | form_DC= 8.83% | e_sh=  24.5mJ | E300=11.36J | nbr(50/95/99)=1.9/4.5/6.0 | c_i=7.40 h=0.00 n_w=7.03
+  s                  (n=30): comp= 55.6% | RMST300=197.4s | m_join=115.0s (sync= 12.1s+rpl=102.9s) | coll(T/S/X)=1303/22017/0 | sw=0.83 | slot0_DC=0.155% | form_DC= 5.02% | e_sh=  24.2mJ | E300=11.15J | nbr(50/95/99)=1.8/5.4/7.1 | c_i=13.73 h=0.00 n_w=3.96
+  ease_adapt         (n=30): comp= 62.4% | RMST300=176.9s | m_join=102.3s (sync= 15.6s+rpl= 86.8s) | coll(T/S/X)=166/5675/3289 | sw=1.01 | slot0_DC=0.213% | form_DC= 5.63% | e_sh=  33.3mJ | E300=10.00J | nbr(50/95/99)=2.1/5.4/7.3 | c_i=13.79 h=2.46 n_w=4.15
+  ebmc_adapt         (n=30): comp= 66.3% | RMST300=172.4s | m_join=107.6s (sync= 15.7s+rpl= 91.9s) | coll(T/S/X)=290/9472/0 | sw=0.96 | slot0_DC=0.206% | form_DC= 5.95% | e_sh=  32.2mJ | E300= 9.75J | nbr(50/95/99)=2.2/5.5/7.1 | c_i=13.83 h=0.00 n_w=4.56
+  idhash_guard_adapt (n=30): comp= 62.8% | RMST300=177.1s | m_join=104.3s (sync= 15.3s+rpl= 89.0s) | coll(T/S/X)=57/6120/3231 | sw=1.01 | slot0_DC=0.210% | form_DC= 5.63% | e_sh=  32.8mJ | E300=10.01J | nbr(50/95/99)=2.1/5.3/7.1 | c_i=13.91 h=2.49 n_w=4.29
+  idhash_rev         (n=30): comp= 62.4% | RMST300=178.7s | m_join=105.4s (sync= 15.2s+rpl= 90.2s) | coll(T/S/X)=63/5824/3383 | sw=1.02 | slot0_DC=0.210% | form_DC= 5.54% | e_sh=  32.9mJ | E300=10.10J | nbr(50/95/99)=2.1/5.2/7.0 | c_i=13.90 h=2.55 n_w=4.20
+  assign_hyst        (n=30): comp= 62.7% | RMST300=171.4s | m_join= 94.9s (sync= 16.9s+rpl= 78.1s) | coll(T/S/X)=1492/49338/1289 | sw=0.81 | slot0_DC=0.144% | form_DC= 9.04% | e_sh=  22.6mJ | E300= 9.68J | nbr(50/95/99)=1.3/6.5/8.6 | c_i=8.53 h=1.92 n_w=6.45
+  assign_ref         (n=30): comp= 62.7% | RMST300=171.4s | m_join= 94.9s (sync= 16.9s+rpl= 78.1s) | coll(T/S/X)=1492/49338/1289 | sw=0.81 | slot0_DC=0.144% | form_DC= 9.04% | e_sh=  22.6mJ | E300= 9.68J | nbr(50/95/99)=1.3/6.5/8.6 | c_i=8.53 h=1.92 n_w=6.45
+  assign_guard       (n=30): comp= 63.7% | RMST300=170.4s | m_join= 96.3s (sync= 16.8s+rpl= 79.5s) | coll(T/S/X)=597/50175/1365 | sw=0.81 | slot0_DC=0.144% | form_DC= 6.94% | e_sh=  22.5mJ | E300= 9.62J | nbr(50/95/99)=1.3/6.5/8.6 | c_i=9.22 h=1.91 n_w=6.13
+  assign_both        (n=30): comp= 63.7% | RMST300=170.4s | m_join= 96.3s (sync= 16.8s+rpl= 79.5s) | coll(T/S/X)=597/50172/1370 | sw=0.81 | slot0_DC=0.144% | form_DC= 6.94% | e_sh=  22.5mJ | E300= 9.62J | nbr(50/95/99)=1.3/6.5/8.6 | c_i=9.22 h=1.91 n_w=6.13
+  adapt_age          (n=30): comp= 24.4% | RMST300=253.3s | m_join=108.3s (sync= 49.1s+rpl= 59.2s) | coll(T/S/X)=879/4411/0 | sw=0.56 | slot0_DC=0.159% | form_DC=53.45% | e_sh=  24.9mJ | E300=14.29J | nbr(50/95/99)=1.1/3.1/4.0 | c_i=1.00 h=0.00 n_w=22.39
+  adapt_dens         (n=29): comp= 37.9% | RMST300=238.7s | m_join=135.3s (sync= 15.2s+rpl=120.0s) | coll(T/S/X)=30340/217/0 | sw=0.00 | slot0_DC=0.101% | form_DC=27.48% | e_sh=  15.8mJ | E300=13.47J | nbr(50/95/99)=1.0/1.0/1.0 | c_i=1.00 h=0.00 n_w=36.26
+  adapt_nophase      (n=30): comp= 25.2% | RMST300=252.8s | m_join=112.7s (sync= 48.3s+rpl= 64.4s) | coll(T/S/X)=802/4157/0 | sw=0.60 | slot0_DC=0.155% | form_DC=51.24% | e_sh=  24.3mJ | E300=14.26J | nbr(50/95/99)=1.2/3.3/4.5 | c_i=1.00 h=0.00 n_w=23.09
+  adapt_full         (n=30): comp= 24.8% | RMST300=253.1s | m_join=110.7s (sync= 48.7s+rpl= 62.0s) | coll(T/S/X)=804/4004/0 | sw=0.60 | slot0_DC=0.159% | form_DC=51.98% | e_sh=  24.8mJ | E300=14.28J | nbr(50/95/99)=1.3/3.3/4.4 | c_i=1.00 h=0.00 n_w=22.28
+  define_noka        (n=30): comp= 68.5% | RMST300=164.4s | m_join=101.8s (sync= 16.4s+rpl= 85.4s) | coll(T/S/X)=157/10003/2508 | sw=1.20 | slot0_DC=0.184% | form_DC= 6.00% | e_sh=  28.8mJ | E300= 9.29J | nbr(50/95/99)=2.2/6.2/8.5 | c_i=11.13 h=2.61 n_w=6.17
+  ebmc_mrm           (n=30): comp= 43.1% | RMST300=221.9s | m_join=118.9s (sync= 15.9s+rpl=103.0s) | coll(T/S/X)=1382/19661/0 | sw=0.78 | slot0_DC=0.133% | form_DC= 7.65% | e_sh=  20.9mJ | E300=12.52J | nbr(50/95/99)=1.1/3.4/4.5 | c_i=7.30 h=0.00 n_w=5.75
+  ease_mrm           (n=30): comp= 52.9% | RMST300=202.9s | m_join=116.7s (sync= 12.9s+rpl=103.9s) | coll(T/S/X)=1174/20522/0 | sw=0.82 | slot0_DC=0.147% | form_DC= 5.17% | e_sh=  23.0mJ | E300=11.45J | nbr(50/95/99)=1.9/5.0/7.1 | c_i=13.58 h=0.00 n_w=3.79
+  define_hoptier_mrm (n=30): comp= 66.0% | RMST300=173.3s | m_join=108.1s (sync= 17.6s+rpl= 90.5s) | coll(T/S/X)=81/7856/758 | sw=1.20 | slot0_DC=0.195% | form_DC= 6.45% | e_sh=  30.5mJ | E300= 9.79J | nbr(50/95/99)=2.3/5.5/7.1 | c_i=11.11 h=1.20 n_w=5.67
+  define_mrm         (n=30): comp= 67.0% | RMST300=172.6s | m_join=109.8s (sync= 17.6s+rpl= 92.1s) | coll(T/S/X)=82/6167/2444 | sw=1.21 | slot0_DC=0.193% | form_DC= 6.44% | e_sh=  30.3mJ | E300= 9.75J | nbr(50/95/99)=2.4/5.5/7.1 | c_i=11.12 h=2.67 n_w=5.77
+  define_rev         (n=30): comp= 71.0% | RMST300=161.3s | m_join=104.7s (sync= 16.3s+rpl= 88.3s) | coll(T/S/X)=98/7258/2584 | sw=1.21 | slot0_DC=0.203% | form_DC= 5.93% | e_sh=  31.9mJ | E300= 9.12J | nbr(50/95/99)=2.4/5.6/7.5 | c_i=11.14 h=2.73 n_w=6.23
+  define_rand        (n=30): comp= 69.0% | RMST300=165.0s | m_join=104.4s (sync= 16.6s+rpl= 87.7s) | coll(T/S/X)=104/6981/2540 | sw=1.21 | slot0_DC=0.202% | form_DC= 6.02% | e_sh=  31.7mJ | E300= 9.33J | nbr(50/95/99)=2.4/5.6/7.1 | c_i=11.23 h=2.64 n_w=5.93
+  define_tierstart   (n=30): comp= 69.9% | RMST300=164.5s | m_join=105.9s (sync= 16.5s+rpl= 89.5s) | coll(T/S/X)=97/7026/2565 | sw=1.22 | slot0_DC=0.204% | form_DC= 5.98% | e_sh=  31.9mJ | E300= 9.30J | nbr(50/95/99)=2.5/5.9/7.6 | c_i=11.15 h=2.69 n_w=6.00
+  ebmc_2s_poisson    (n=30): comp= 48.6% | RMST300=201.0s | m_join= 96.2s (sync= 10.4s+rpl= 85.9s) | coll(T/S/X)=421/9745/0 | sw=1.09 | slot0_DC=0.132% | form_DC= 4.29% | e_sh=  20.6mJ | E300=11.35J | nbr(50/95/99)=2.0/4.4/5.7 | c_i=5.64 h=0.00 n_w=4.50
+  ease_poisson       (n=30): comp= 51.2% | RMST300=196.7s | m_join= 98.0s (sync=  4.8s+rpl= 93.2s) | coll(T/S/X)=743/16230/0 | sw=1.05 | slot0_DC=0.118% | form_DC= 2.01% | e_sh=  18.5mJ | E300=11.11J | nbr(50/95/99)=2.0/5.0/6.8 | c_i=9.77 h=0.00 n_w=2.99
+  define_poisson     (n=30): comp= 63.6% | RMST300=164.5s | m_join= 87.0s (sync=  8.3s+rpl= 78.7s) | coll(T/S/X)=73/4802/2255 | sw=1.35 | slot0_DC=0.171% | form_DC= 3.07% | e_sh=  26.7mJ | E300= 9.29J | nbr(50/95/99)=2.2/5.0/6.5 | c_i=8.32 h=2.72 n_w=3.76
+  define_late        (n=30): comp= 64.8% | RMST300=171.9s | m_join=102.4s (sync= 15.1s+rpl= 87.3s) | coll(T/S/X)=78/6328/2461 | sw=1.15 | slot0_DC=0.198% | form_DC= 5.00% | e_sh=  31.0mJ | E300= 9.72J | nbr(50/95/99)=2.4/5.8/7.5 | c_i=10.59 h=2.74 n_w=5.35
+  define_fail        (n=30): comp= 69.5% | RMST300=161.3s | m_join=100.5s (sync= 16.4s+rpl= 84.1s) | coll(T/S/X)=84/6637/2357 | sw=1.17 | slot0_DC=0.190% | form_DC= 5.96% | e_sh=  29.8mJ | E300= 9.12J | nbr(50/95/99)=2.2/5.4/7.2 | c_i=10.81 h=2.60 n_w=6.15
+  define_mixed       (n=30): comp= 65.1% | RMST300=176.0s | m_join=109.6s (sync= 19.2s+rpl= 90.5s) | coll(T/S/X)=101/4673/1902 | sw=1.18 | slot0_DC=0.191% | form_DC= 6.93% | e_sh=  30.0mJ | E300= 9.95J | nbr(50/95/99)=2.2/5.4/7.0 | c_i=10.26 h=2.06 n_w=5.70
+  p                  (n=30): comp= 70.1% | RMST300=161.0s | m_join=101.7s (sync= 16.4s+rpl= 85.3s) | coll(T/S/X)=95/7188/2541 | sw=1.22 | slot0_DC=0.205% | form_DC= 5.97% | e_sh=  32.1mJ | E300= 9.10J | nbr(50/95/99)=2.4/6.0/7.8 | c_i=11.04 h=2.68 n_w=6.11
+  [Paired Wilcoxon + Holm (14 baselines) — DODAG Completion (%)]: max p_Holm = 0.127924
+    vs 6TiSCH-MC (1S) (n=24)       : p_raw=1.93088e-05, p_Holm=9.65442e-05
+    vs 6TiSCH-MC (Tuned 4S) (n=30) : p_raw=1.81738e-06, p_Holm=2.54433e-05
+    vs 6TiSCH-MC (Default 26S) (n=30): p_raw=1.82194e-06, p_Holm=2.54433e-05
+    vs CSMJ (n=30)                 : p_raw=1.8208e-06, p_Holm=2.54433e-05
+    vs ATP: 2 (n=30)               : p_raw=1.82423e-06, p_Holm=2.54433e-05
+    vs EDBA-SA (n=30)              : p_raw=1.82309e-06, p_Holm=2.54433e-05
+    vs ECV-SA (n=30)               : p_raw=1.82537e-06, p_Holm=2.54433e-05
+    vs Pairing (1S) (n=30)         : p_raw=0.127924, p_Holm=0.127924
+    vs Pairing (Tuned 2S) (n=30)   : p_raw=0.0114006, p_Holm=0.0228012
+    vs TRGB (1S) (n=30)            : p_raw=0.000294136, p_Holm=0.00117654
+    vs TRGB (Tuned 2S) (n=30)      : p_raw=0.00113409, p_Holm=0.00340228
+    vs EBMC (1S) (n=30)            : p_raw=1.82309e-06, p_Holm=2.54433e-05
+    vs EBMC (Tuned 2S) (n=30)      : p_raw=2.73267e-06, p_Holm=2.54433e-05
+    vs EASE (n=30)                 : p_raw=2.23589e-06, p_Holm=2.54433e-05
+  [Paired Wilcoxon + Holm (14 baselines) — RMST_300 (s)]: max p_Holm = 0.217166
+    vs 6TiSCH-MC (1S) (n=24)       : p_raw=1.94225e-05, p_Holm=7.76899e-05
+    vs 6TiSCH-MC (Tuned 4S) (n=30) : p_raw=1.82537e-06, p_Holm=2.55552e-05
+    vs 6TiSCH-MC (Default 26S) (n=30): p_raw=1.82537e-06, p_Holm=2.55552e-05
+    vs CSMJ (n=30)                 : p_raw=1.82537e-06, p_Holm=2.55552e-05
+    vs ATP: 2 (n=30)               : p_raw=1.82537e-06, p_Holm=2.55552e-05
+    vs EDBA-SA (n=30)              : p_raw=1.82537e-06, p_Holm=2.55552e-05
+    vs ECV-SA (n=30)               : p_raw=1.82537e-06, p_Holm=2.55552e-05
+    vs Pairing (1S) (n=30)         : p_raw=0.217166, p_Holm=0.217166
+    vs Pairing (Tuned 2S) (n=30)   : p_raw=4.6505e-05, p_Holm=0.000106841
+    vs TRGB (1S) (n=30)            : p_raw=3.56137e-05, p_Holm=0.000106841
+    vs TRGB (Tuned 2S) (n=30)      : p_raw=1.07443e-05, p_Holm=5.37217e-05
+    vs EBMC (1S) (n=30)            : p_raw=1.82537e-06, p_Holm=2.55552e-05
+    vs EBMC (Tuned 2S) (n=30)      : p_raw=2.02127e-06, p_Holm=2.55552e-05
+    vs EASE (n=30)                 : p_raw=2.02127e-06, p_Holm=2.55552e-05
   [Paired Wilcoxon + Holm (14 baselines) — Cond. Mean Join Time (s)]: max p_Holm = 1
-    vs 6TiSCH-MC (1S) (n=4)        : p_raw=0.25, p_Holm=1
-    vs 6TiSCH-MC (Tuned 4S) (n=5)  : p_raw=0.0625, p_Holm=0.875
-    vs 6TiSCH-MC (Default 26S) (n=5): p_raw=0.0625, p_Holm=0.875
-    vs CSMJ (n=5)                  : p_raw=0.0625, p_Holm=0.875
-    vs ATP: 2 (n=5)                : p_raw=0.625, p_Holm=1
-    vs EDBA-SA (n=5)               : p_raw=0.3125, p_Holm=1
-    vs ECV-SA (n=5)                : p_raw=1, p_Holm=1
-    vs Pairing (1S) (n=5)          : p_raw=1, p_Holm=1
-    vs Pairing (Tuned 2S) (n=5)    : p_raw=0.1875, p_Holm=1
-    vs TRGB (1S) (n=5)             : p_raw=0.4375, p_Holm=1
-    vs TRGB (Tuned 2S) (n=5)       : p_raw=0.0625, p_Holm=0.875
-    vs EBMC (1S) (n=5)             : p_raw=0.4375, p_Holm=1
-    vs EBMC (Tuned 2S) (n=5)       : p_raw=0.1875, p_Holm=1
-    vs EASE (n=5)                  : p_raw=0.0625, p_Holm=0.875
+    vs 6TiSCH-MC (1S) (n=24)       : p_raw=0.875132, p_Holm=1
+    vs 6TiSCH-MC (Tuned 4S) (n=30) : p_raw=4.96713e-06, p_Holm=6.45727e-05
+    vs 6TiSCH-MC (Default 26S) (n=30): p_raw=1.82537e-06, p_Holm=2.55552e-05
+    vs CSMJ (n=30)                 : p_raw=9.30693e-05, p_Holm=0.00102376
+    vs ATP: 2 (n=30)               : p_raw=0.41066, p_Holm=1
+    vs EDBA-SA (n=30)              : p_raw=0.00124124, p_Holm=0.0086887
+    vs ECV-SA (n=30)               : p_raw=0.636162, p_Holm=1
+    vs Pairing (1S) (n=30)         : p_raw=0.592804, p_Holm=1
+    vs Pairing (Tuned 2S) (n=30)   : p_raw=0.000110251, p_Holm=0.00110251
+    vs TRGB (1S) (n=30)            : p_raw=0.0107577, p_Holm=0.0645459
+    vs TRGB (Tuned 2S) (n=30)      : p_raw=0.000318879, p_Holm=0.00255104
+    vs EBMC (1S) (n=30)            : p_raw=0.0170361, p_Holm=0.0851806
+    vs EBMC (Tuned 2S) (n=30)      : p_raw=1.18105e-05, p_Holm=0.000141726
+    vs EASE (n=30)                 : p_raw=0.000196971, p_Holm=0.00177274
 
---- Mixed 80/20 Coexistence Check (N = 200, 100m x 100m, n=5) ---
-  define_mixed: comp= 24.1% | RMST300=255.5s | m_join=115.3s (sync= 17.1s+rpl= 98.2s) | E300=14.42J
+--- Mixed 80/20 Coexistence Check (N = 200, 100m x 100m, n=30) ---
+  define_mixed: comp= 81.7% | RMST300=147.1s | m_join=112.9s (sync= 20.9s+rpl= 92.0s) | E300= 8.32J
