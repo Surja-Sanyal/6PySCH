@@ -6,6 +6,7 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.ticker import MaxNLocator
 from concurrent.futures import ProcessPoolExecutor
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -105,14 +106,14 @@ def save_standalone_legend():
     handles = []
     for key in ["p", "e", "r", "d", "a_2", "t", "c", "s"]:
         label, color, marker, ls, lw, mfc = MECHANISMS[key]
-        ms = 9.0 if marker == "*" else 7.2
+        ms = 9.5 if marker == "*" else 7.6
         handles.append(
             Line2D(
                 [0], [0],
                 color=color,
                 marker=marker,
                 linestyle=ls,
-                linewidth=lw,
+                linewidth=lw + 0.3,
                 markersize=ms,
                 markerfacecolor=mfc,
                 markeredgecolor=color,
@@ -120,7 +121,7 @@ def save_standalone_legend():
                 label=label,
             )
         )
-    fig = plt.figure(figsize=(7.4, 0.72), dpi=300)
+    fig = plt.figure(figsize=(6.0, 0.72), dpi=600)
     fig.legend(
         handles=handles,
         loc="center",
@@ -128,15 +129,15 @@ def save_standalone_legend():
         frameon=True,
         edgecolor="#222222",
         facecolor="white",
-        fontsize=10.5,
-        handlelength=3.2,
-        handletextpad=0.6,
-        columnspacing=1.5,
+        fontsize=13.5,
+        handlelength=2.6,
+        handletextpad=0.5,
+        columnspacing=1.1,
     )
     plt.axis("off")
     for p in [os.path.join(ROOT_DIR, "legend_only.png"), os.path.join(PLOTS_DIR, "legend_only.png")]:
-        fig.savefig(p, dpi=300, bbox_inches="tight", pad_inches=0.04)
-    fig.savefig(os.path.join(RESULTS_DIR, "legend_only.pdf"), format="pdf", bbox_inches="tight", pad_inches=0.04)
+        fig.savefig(p, dpi=600, bbox_inches="tight", pad_inches=0.03)
+    fig.savefig(os.path.join(RESULTS_DIR, "legend_only.pdf"), format="pdf", bbox_inches="tight", pad_inches=0.03)
     plt.close(fig)
 
 
@@ -336,61 +337,67 @@ def generate_markov_figure6_from_simulation():
     sorted_densities = [round(r[0] / r[1], 2) for r in m_data]
 
     def plot_markov_panel(y_pairs, legends, colors, markers, lstyles, ylabel, fname):
-        fig, ax = plt.subplots(figsize=(5.4, 3.8), dpi=300)
+        fig, ax = plt.subplots(figsize=(4.5, 3.25), dpi=600)
         max_y = 0.0
         for (y_mean, y_se), lbl, col, mk, ls in zip(y_pairs, legends, colors, markers, lstyles):
-            if "Predicted" in lbl:
+            if "Pred" in lbl:
                 max_y = max(max_y, float(np.max(y_mean)))
                 ax.plot(
                     sorted_densities, y_mean,
                     label=lbl, color=col, marker=mk, linestyle=ls,
-                    linewidth=2.0, markersize=6.0, markerfacecolor="white",
-                    markeredgecolor=col, markeredgewidth=1.5, alpha=0.95
+                    linewidth=2.3, markersize=6.6, markerfacecolor="white",
+                    markeredgecolor=col, markeredgewidth=1.6, alpha=0.95
                 )
             else:
                 max_y = max(max_y, float(np.max(y_mean + y_se)))
                 ax.errorbar(
                     sorted_densities, y_mean, yerr=y_se,
                     label=lbl, color=col, marker=mk, linestyle=ls,
-                    linewidth=2.0, markersize=6.0, markerfacecolor="white",
-                    markeredgecolor=col, markeredgewidth=1.5,
-                    capsize=2.0, elinewidth=0.9, alpha=0.95
+                    linewidth=2.3, markersize=6.6, markerfacecolor="white",
+                    markeredgecolor=col, markeredgewidth=1.6,
+                    capsize=2.2, elinewidth=1.0, alpha=0.95
                 )
-        ax.set_xlabel(r"Spatial density ($\times 10^{-2}$ motes/m$^2$)", fontsize=12.0)
-        ax.set_ylabel(ylabel, fontsize=12.0)
+        ax.set_xlabel(r"Density ($\times 10^{-2}$ motes/m$^2$)", fontsize=19.0, labelpad=3)
+        ax.set_ylabel(ylabel, fontsize=19.0, labelpad=3)
         ax.set_xticks([0.0, 1.0, 2.0, 3.0, 4.0, 5.0])
-        ax.tick_params(labelsize=11)
+        ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+        ax.tick_params(labelsize=17.0)
         ax.ticklabel_format(style="plain", useOffset=False)
         ax.grid(True, linestyle="--", alpha=0.45)
-        ax.set_ylim(0.0, 1.25 * max_y)
-        ax.legend(loc="upper left", ncol=1, fontsize=13.5, frameon=True, edgecolor="#333333")
-        fig.tight_layout()
-        fig.savefig(os.path.join(RESULTS_DIR, fname), format="pdf", bbox_inches="tight")
+        ax.set_ylim(0.0, (1.38 if len(legends) > 2 else 1.25) * max_y)
+        leg_fs = 14.5 if len(legends) > 2 else 16.5
+        ax.legend(
+            loc="upper left", ncol=1, fontsize=leg_fs, frameon=True,
+            edgecolor="#333333", handlelength=1.8, handletextpad=0.4,
+            borderpad=0.25, labelspacing=0.18
+        )
+        fig.tight_layout(pad=0.25)
+        fig.savefig(os.path.join(RESULTS_DIR, fname), format="pdf", bbox_inches="tight", pad_inches=0.02)
         plt.close(fig)
 
     plot_markov_panel(
         [(m_data[:, 2], m_data[:, 3]), (m_data[:, 4], m_data[:, 5])],
-        ["Predicted time", "Actual time"],
+        ["Predicted", "Actual"],
         ["#0044cc", "#e66100"], ["s", "o"], ["-", "--"],
-        r"Average sync time ($\times 10^2$ s)", "markov_densitywise_sync_time.pdf"
+        r"Sync time ($\times 10^2$ s)", "markov_densitywise_sync_time.pdf"
     )
     plot_markov_panel(
         [(m_data[:, 14], m_data[:, 15]), (m_data[:, 6], m_data[:, 7]), (m_data[:, 16], m_data[:, 17]), (m_data[:, 8], m_data[:, 9])],
-        ["Predicted network energy", "Predicted pledge energy", "Actual network energy", "Actual pledge energy"],
+        ["Pred. net.", "Pred. pledge", "Act. net.", "Act. pledge"],
         ["#0044cc", "#1b9e3e", "#e66100", "#d92121"], ["s", "D", "o", "p"], ["-", "-.", "--", ":"],
-        r"Average energy (J)", "markov_densitywise_total_energy.pdf"
+        "Avg. energy (J)", "markov_densitywise_total_energy.pdf"
     )
     plot_markov_panel(
         [(m_data[:, 10], m_data[:, 11]), (m_data[:, 12], m_data[:, 13])],
-        ["Predicted energy", "Actual energy"],
+        ["Predicted", "Actual"],
         ["#0044cc", "#e66100"], ["s", "o"], ["-", "--"],
-        r"Average energy ($\times 10^2$ mJ)", "markov_densitywise_joined_energy.pdf"
+        r"Energy ($\times 10^2$ mJ)", "markov_densitywise_joined_energy.pdf"
     )
     plot_markov_panel(
         [(m_data[:, 6], m_data[:, 7]), (m_data[:, 8], m_data[:, 9])],
-        ["Predicted energy", "Actual energy"],
+        ["Predicted", "Actual"],
         ["#0044cc", "#e66100"], ["s", "o"], ["-", "--"],
-        r"Average energy (J)", "markov_densitywise_pledge_energy.pdf"
+        "Avg. energy (J)", "markov_densitywise_pledge_energy.pdf"
     )
 
 
@@ -527,16 +534,16 @@ def generate_wavefront_cdf_plot():
     step_100 = max(1, len(emp_100) // 16)
     step_500 = max(1, len(emp_500) // 16)
 
-    fig, ax = plt.subplots(figsize=(5.6, 3.95), dpi=300)
+    fig, ax = plt.subplots(figsize=(5.0, 3.35), dpi=600)
     ax.plot(
-        emp_100, y_100, color="#0044cc", linestyle="-", linewidth=2.2,
-        marker="o", markevery=step_100, markersize=5.6, markerfacecolor="white", markeredgewidth=1.5,
-        label=f"Cooja $N=100$ (med={np.median(emp_100):.1f}s, $P_{{95}}$={np.percentile(emp_100, 95):.1f}s)"
+        emp_100, y_100, color="#0044cc", linestyle="-", linewidth=2.3,
+        marker="o", markevery=step_100, markersize=6.0, markerfacecolor="white", markeredgewidth=1.6,
+        label=f"Cooja $N=100$ (med {np.median(emp_100):.1f}s, $P_{{95}}$ {np.percentile(emp_100, 95):.1f}s)"
     )
     ax.plot(
-        emp_500, y_500, color="#d92121", linestyle="-", linewidth=2.2,
-        marker="s", markevery=step_500, markersize=5.6, markerfacecolor="white", markeredgewidth=1.5,
-        label=f"Cooja $N=500$ (med={np.median(emp_500):.1f}s, $P_{{95}}$={np.percentile(emp_500, 95):.1f}s)"
+        emp_500, y_500, color="#d92121", linestyle="-", linewidth=2.3,
+        marker="s", markevery=step_500, markersize=6.0, markerfacecolor="white", markeredgewidth=1.6,
+        label=f"Cooja $N=500$ (med {np.median(emp_500):.1f}s, $P_{{95}}$ {np.percentile(emp_500, 95):.1f}s)"
     )
 
     # Overlay zero-free-parameter Eq. (17) analytical model CDFs from logged 28-col inputs
@@ -558,16 +565,16 @@ def generate_wavefront_cdf_plot():
                     label=f"Model Eq. (17) $N={n_val}$ ($\\bar{{c}}_i={c_bar:.1f}, n_\\omega={n_w:.1f}$)"
                 )
 
-    ax.set_xlabel("Conditional joining time (s)", fontsize=12.0)
-    ax.set_ylabel("Cumulative joined-node CDF (%)", fontsize=12.0)
+    ax.set_xlabel("Conditional joining time (s)", fontsize=14.0, labelpad=3)
+    ax.set_ylabel("Joined-node CDF (%)", fontsize=14.0, labelpad=3)
     ax.set_xlim(0.0, HORIZON_S)
     ax.set_ylim(0.0, 102.0)
-    ax.tick_params(labelsize=11)
+    ax.tick_params(labelsize=12.5)
     ax.grid(True, linestyle="--", alpha=0.45)
-    ax.legend(loc="lower right", fontsize=8.4, frameon=True, edgecolor="#333333")
-    fig.tight_layout()
-    fig.savefig(os.path.join(PLOTS_DIR, "Fig_wavefront_cdf_comparison.png"), dpi=300, bbox_inches="tight")
-    fig.savefig(os.path.join(RESULTS_DIR, "wavefront_cdf_comparison.pdf"), format="pdf", bbox_inches="tight")
+    ax.legend(loc="lower right", fontsize=10.5, frameon=True, edgecolor="#333333", handlelength=2.0, borderpad=0.3, labelspacing=0.22)
+    fig.tight_layout(pad=0.25)
+    fig.savefig(os.path.join(PLOTS_DIR, "Fig_wavefront_cdf_comparison.png"), dpi=300, bbox_inches="tight", pad_inches=0.02)
+    fig.savefig(os.path.join(RESULTS_DIR, "wavefront_cdf_comparison.pdf"), format="pdf", bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
 
@@ -626,7 +633,7 @@ def plot_sweep(
             return m["formation_duty_pct"]
         return arr[:, col_idx] * y_scale
 
-    fig, ax = plt.subplots(figsize=(5.5, 3.85), dpi=300)
+    fig, ax = plt.subplots(figsize=(4.5, 3.25), dpi=600)
     plotted_any = False
     for key in ORDER:
         label, color, marker, ls, lw, mfc = MECHANISMS[key]
@@ -636,7 +643,8 @@ def plot_sweep(
         plotted_any = True
         x = x_raw * x_scale
 
-        ms = 8.5 if marker == "*" else 6.4
+        ms = 9.0 if marker == "*" else 6.8
+        lw_use = lw + 0.35
         z = 10 if key == "p" else 4
         if np.any(y_se > 0):
             ax.errorbar(
@@ -659,16 +667,18 @@ def plot_sweep(
         plt.close(fig)
         return
 
-    ax.set_xlabel(xlabel, fontsize=12.0)
-    ax.set_ylabel(ylabel, fontsize=12.0)
-    ax.tick_params(labelsize=11)
+    ax.set_xlabel(xlabel, fontsize=19.0, labelpad=3)
+    ax.set_ylabel(ylabel, fontsize=19.0, labelpad=3)
+    ax.xaxis.set_major_locator(MaxNLocator(nbins=5))
+    ax.yaxis.set_major_locator(MaxNLocator(nbins=5))
+    ax.tick_params(labelsize=17.0)
     ax.ticklabel_format(style="plain", useOffset=False)
     ax.grid(True, linestyle="--", alpha=0.45)
-    fig.tight_layout()
+    fig.tight_layout(pad=0.25)
     for out_dir in [ROOT_DIR, PLOTS_DIR]:
-        fig.savefig(os.path.join(out_dir, png_name), dpi=300, bbox_inches="tight")
+        fig.savefig(os.path.join(out_dir, png_name), dpi=300, bbox_inches="tight", pad_inches=0.02)
     if pdf_name:
-        fig.savefig(os.path.join(RESULTS_DIR, pdf_name), format="pdf", bbox_inches="tight")
+        fig.savefig(os.path.join(RESULTS_DIR, pdf_name), format="pdf", bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
 
@@ -891,10 +901,11 @@ if __name__ == "__main__":
     generate_wavefront_cdf_plot()
     generate_latex_table_iv_and_stats()
 
-    rmst_lbl = r"$\mathrm{RMST}_{300}$ (s)"
-    mjoin_lbl = r"Cond. mean join time ($\times 10^4$ slots)"
-    coll_lbl = r"Collisions ($\times 10^4$)"
-    comp_lbl = r"DODAG completion ($\%$)"
+    rmst_lbl  = r"$\mathrm{RMST}_{300}$ (s)"
+    mjoin_lbl = r"Cond. join ($\times 10^4$ sl)"
+    coll_lbl  = r"Collisions ($\times 10^4$)"
+    comp_lbl  = r"Completion ($\%$)"
+    dens_lbl  = r"Density ($\times 10^{-2}$ motes/m$^2$)"
 
     f_nodes = {2: 16, 3: 61, 4: 1}
     plot_sweep(0, f_nodes, 6, "Total pledges", rmst_lbl,  "Fig9a_total_sync_time.png", "motewise_total_time.pdf", is_rmst=True, mode="motewise")
@@ -908,10 +919,10 @@ if __name__ == "__main__":
     plot_sweep(0, f_nodes, 9, dens_lbl, coll_lbl,  "Fig10c_density_collisions.png",  "densitywise_average_collisions.pdf", x_scale=0.01, y_scale=1e-4, mode="densitywise")
     plot_sweep(0, f_nodes, 5, dens_lbl, comp_lbl,  "Fig10d_density_completion.png",  "densitywise_dodag_completion.pdf", x_scale=0.01, is_pct=True, mode="densitywise")
 
-    plot_sweep(0, f_nodes, 19, dens_lbl, r"Tx radio energy (mJ/node)",                 "Fig11a_tx_energy.png",    "densitywise_transmission_energy.pdf", x_scale=0.01, is_tx_energy=True, mode="densitywise")
-    plot_sweep(0, f_nodes, 11, dens_lbl, r"Rx scan energy (J/node)",                   "Fig11b_rx_energy.png",    "densitywise_reception_energy.pdf", x_scale=0.01, is_rx_energy=True, mode="densitywise")
-    plot_sweep(0, f_nodes, 10, dens_lbl, r"Total formation energy $E_{300}$ (J/node)", "Fig11c_total_energy.png", "densitywise_total_energy.pdf", x_scale=0.01, is_total_energy=True, mode="densitywise")
-    plot_sweep(0, f_nodes, 10, dens_lbl, r"Formation duty cycle ($\%$)",               "Fig11d_duty_cycle.png",   "densitywise_duty_cycle.pdf", x_scale=0.01, is_duty=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 19, dens_lbl, r"Tx energy (mJ/node)",         "Fig11a_tx_energy.png",    "densitywise_transmission_energy.pdf", x_scale=0.01, is_tx_energy=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 11, dens_lbl, r"Scan energy (J/node)",        "Fig11b_rx_energy.png",    "densitywise_reception_energy.pdf", x_scale=0.01, is_rx_energy=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 10, dens_lbl, r"Energy $E_{300}$ (J/node)",   "Fig11c_total_energy.png", "densitywise_total_energy.pdf", x_scale=0.01, is_total_energy=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 10, dens_lbl, r"Duty cycle ($\%$)",           "Fig11d_duty_cycle.png",   "densitywise_duty_cycle.pdf", x_scale=0.01, is_duty=True, mode="densitywise")
 
     f_ch = {0: 200, 3: 61, 4: 1}
     plot_sweep(2, f_ch, 6, "Total channels", rmst_lbl,  "Fig12a_ch_total_sync_time.png", "channelwise_total_time.pdf", is_rmst=True)
