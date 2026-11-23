@@ -1,0 +1,7 @@
+=== Compiled Binary Size Audit (DEFINE SYNC_SCHEME=1 vs 6TiSCH-MC 1S SYNC_SCHEME=2) ===
+--- TARGET=cooja ---
+Target cooja toolchain not installed in container
+--- TARGET=z1 ---
+Target z1 toolchain not installed in container
+--- TARGET=cc2538dk ---
+Target cc2538dk toolchain not installed in container
