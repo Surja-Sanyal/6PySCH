@@ -52,12 +52,20 @@ SCHEME_MAP = {
     33: "idhash_rev",         # ID-Hash + Guard + ADAPT (Reversed Sweep)
     34: "define_rand",        # DEFINE (Random Sweep Order)
     35: "define_late",        # DEFINE (Late Joiners, 20% at t=150s)
-    36: "define_fail",        # DEFINE (10% Relay Failure at t=120s)
+    36: "define_fail",        # DEFINE (10% Relay Shutdown at t=120s)
     37: "define_mixed",       # DEFINE (Mixed 80% DEFINE / 20% Stock RFC 8180)
     38: "define_tierstart",   # DEFINE (Tier-Aware Sweep Start)
     39: "pair_2s",            # Pairing (Tuned 2S)
     40: "trgb_2s",            # TRGB (Tuned 2S)
     41: "define_hoptier_mrm", # DEFINE (Hop-Count Tier, Lossy UDGM 85% PRR)
+    42: "idhash_nonzero",     # ID-Hash Non-Zero {1..C-1} + Guard + ADAPT (Control)
+    43: "idparity_assign",    # Node-ID Parity (u mod 2) + In-Band Hash + Guard + ADAPT
+    44: "pair_adapt",         # Pairing + ADAPT (Grafted, Alg. 1+KA)
+    45: "define_nosweep",     # DEFINE (No Candidate Sweep — Always on (0,0) after sync)
+    46: "define_dis",         # DEFINE (Stock RPL DIS Enabled)
+    47: "pair_dis",           # Pairing (1S, Stock RPL DIS Enabled)
+    48: "ease_dis",           # EASE (Stock RPL DIS Enabled)
+    49: "ebmc_2s_dis",        # EBMC (Tuned 2S, Stock RPL DIS Enabled)
 }
 
 
@@ -111,13 +119,15 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
     poisson_flag = 1 if scheme_id in (28, 29, 30) else 0
     late_flag = 1 if scheme_id == 35 else 0
     fail_flag = 1 if scheme_id == 36 else 0
+    dis_flag = 1 if scheme_id in (46, 47, 48, 49) else 0
     rx_success = 0.85 if scheme_id in (26, 31, 32, 41) else 1.0
     n_pledges = len(coords) - 1
 
     make_vars = (
         f"SYNC_SCHEME={scheme_id} SF_LENGTH={sf_len} NUM_CHANNELS={n_ch} "
         f"EB_MULT={eb_mult} NBR_CAP={nbr_cap} POISSON_ARRIVAL={poisson_flag} "
-        f"LATE_JOINER={late_flag} PARENT_FAILURE={fail_flag} N_NODES={n_pledges}"
+        f"LATE_JOINER={late_flag} PARENT_FAILURE={fail_flag} "
+        f"ENABLE_RPL_DIS={dis_flag} N_NODES={n_pledges}"
     )
     mote_id_iface = "org.contikios.cooja.contikimote.interfaces.ContikiMoteID"
     motetype_id = "cooja_define"
@@ -164,7 +174,6 @@ def generate_csc_file(csc_path, coords, scheme_id, sf_len, n_ch, eb_mult, seed=2
     </mote>""")
 
     target_motes = len(coords) - 1
-    # Keep Parent-Failure runs alive past t=120s so relay shutdown & parent switches execute
     loop_cond = "true" if fail_flag else "joined &lt; target"
 
     csc_content = f"""<?xml version="1.0" encoding="UTF-8"?>
@@ -413,7 +422,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         t_pen_s = 320.0 * (0.65 + 0.35 * (n_nodes / 200.0)) * (0.75 + 0.25 * (sf_len / 61.0)) * (0.80 + 0.20 * (n_ch / 16.0))
         t_sync_hat_s = 0.55 * median_join_s + unjoined_frac * t_pen_s
 
-        # Actual elapsed simulation horizon (T_form if 100% joined, else full timeout) for Fig. 9(d) duty cycle
+        # Actual elapsed simulation horizon (T_form if 100% joined, else full timeout) for Fig. 10(d) duty cycle
         t_end_s = (max_join_us / 1e6) if (num_joined >= n_nodes and join_times_us and scheme_id != 36) else (sim_timeout_ms / 1000.0)
 
         slot0_tx_us_sum = sum(node_tx_us.values())
@@ -429,7 +438,7 @@ def run_cooja_and_parse(scheme_id, n_nodes=50, area=None, n_ch=16, sf_len=61, eb
         total_active_sfs = sum(node_active_sfs.values())
         eb_rate = float(sum(node_eb_cnt.values())) / float(max(1, total_active_sfs))
 
-        # Real neighbor-table occupancy percentiles (pledges) & M1 wavefront inputs at join time
+        # Real neighbor-table occupancy percentiles (pledges) & Eq. (17) scan inputs at join time
         nbr_vals = np.array([v for nid, v in node_nbrs.items() if nid != 1], dtype=float)
         nbr_p50 = float(np.percentile(nbr_vals, 50)) if len(nbr_vals) > 0 else 0.0
         nbr_p95 = float(np.percentile(nbr_vals, 95)) if len(nbr_vals) > 0 else 0.0
@@ -476,7 +485,7 @@ def run_sweep_group(scheme_id, group_id, seeds=None):
         seeds = list(range(1, 6))
     if 1 <= group_id <= 10:
         n = group_id * 50
-        # Only main sweep schemes (1..8) are plotted on Fig. 7 (constant-density area=None)
+        # Only main sweep schemes (1..8) are plotted on Fig. 8 (constant-density area=None)
         if scheme_id <= 8:
             run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=None, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=16)
         run_cooja_and_parse(scheme_id=scheme_id, n_nodes=n, area=100, n_ch=16, sf_len=61, eb_mult=1, seeds=seeds, nbr_cap=16)

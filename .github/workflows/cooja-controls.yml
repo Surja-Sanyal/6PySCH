@@ -1,0 +1,294 @@
+name: Cooja Round-7 Controls & DIS Sensitivity (Additive)
+
+on:
+  workflow_dispatch:
+    inputs:
+      num_seeds:
+        description: 'Number of paired random seeds per point (30 to match existing 30-seed dataset)'
+        required: false
+        default: '30'
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      heavy_shards: ${{ steps.set-shards.outputs.heavy_shards }}
+      num_heavy_shards: ${{ steps.set-shards.outputs.num_heavy_shards }}
+    steps:
+      - name: Determine Sharding Plan
+        id: set-shards
+        run: |
+          TOTAL=$(echo "${{ inputs.num_seeds }}" | tr -d '[:space:]')
+          TOTAL="${TOTAL:-30}"
+          if [ "$TOTAL" -le 5 ]; then
+            echo 'heavy_shards=[1]' >> "$GITHUB_OUTPUT"
+            echo 'num_heavy_shards=1' >> "$GITHUB_OUTPUT"
+          elif [ "$TOTAL" -le 10 ]; then
+            echo 'heavy_shards=[1, 2]' >> "$GITHUB_OUTPUT"
+            echo 'num_heavy_shards=2' >> "$GITHUB_OUTPUT"
+          else
+            echo 'heavy_shards=[1, 2, 3, 4, 5, 6]' >> "$GITHUB_OUTPUT"
+            echo 'num_heavy_shards=6' >> "$GITHUB_OUTPUT"
+          fi
+
+  simulate-controls-n100:
+    runs-on: ubuntu-latest
+    container: contiker/contiki-ng:latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        scheme: [42, 43, 44, 45, 46, 47, 48, 49]
+        group: [2] # N=100, 100m x 100m, all 30 seeds in 1 fast job (~15-20 min)
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Gradle Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            /home/user/.gradle/caches
+          key: cooja-gradle-${{ hashFiles('contiki-ng-define/tools/cooja/build.gradle') }}
+          restore-keys: |
+            cooja-gradle-
+
+      - name: Run Cooja Round-7 Control Batch (N=100)
+        run: |
+          rm -rf Statistics/*_stats_.txt Statistics/*.csv
+          if [ ! -f "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja/build.gradle" ] && [ -f "/home/user/contiki-ng/tools/cooja/build.gradle" ]; then
+            rm -rf "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja"
+            cp -a /home/user/contiki-ng/tools/cooja "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja"
+          fi
+          mkdir -p /home/user
+          rm -rf /home/user/contiki-ng
+          ln -sfn "$GITHUB_WORKSPACE/contiki-ng-define" /home/user/contiki-ng
+
+          python3 -c "import scripts.run_cooja_headless as r; s=list(range(1, int(('${{ inputs.num_seeds }}').strip() or '30') + 1)); print('Seeds:', s); r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
+
+      - name: Upload Control Artifact (N=100)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctrl-stats-s${{ matrix.scheme }}-g${{ matrix.group }}
+          path: Statistics/
+          retention-days: 2
+          if-no-files-found: ignore
+
+  simulate-controls-n500:
+    needs: [plan]
+    runs-on: ubuntu-latest
+    container: contiker/contiki-ng:latest
+    timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        scheme: [42, 43, 44, 45, 46, 47, 48, 49]
+        group: [10] # N=500, 100m x 100m, 5 seeds/shard (~45-75 min/job)
+        shard: ${{ fromJSON(needs.plan.outputs.heavy_shards) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Cache Gradle Dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            /home/user/.gradle/caches
+          key: cooja-gradle-${{ hashFiles('contiki-ng-define/tools/cooja/build.gradle') }}
+          restore-keys: |
+            cooja-gradle-
+
+      - name: Run Cooja Round-7 Control Batch (N=500, Shard ${{ matrix.shard }}/${{ needs.plan.outputs.num_heavy_shards }})
+        run: |
+          rm -rf Statistics/*_stats_.txt Statistics/*.csv
+          if [ ! -f "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja/build.gradle" ] && [ -f "/home/user/contiki-ng/tools/cooja/build.gradle" ]; then
+            rm -rf "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja"
+            cp -a /home/user/contiki-ng/tools/cooja "$GITHUB_WORKSPACE/contiki-ng-define/tools/cooja"
+          fi
+          mkdir -p /home/user
+          rm -rf /home/user/contiki-ng
+          ln -sfn "$GITHUB_WORKSPACE/contiki-ng-define" /home/user/contiki-ng
+
+          python3 -c "import scripts.run_cooja_headless as r; total=int(('${{ inputs.num_seeds }}').strip() or '30'); sh=int('${{ matrix.shard }}'); nsh=int('${{ needs.plan.outputs.num_heavy_shards }}'); s=list(range(1, total + 1))[sh - 1::nsh]; print('Seeds:', s); s and r.run_sweep_group(scheme_id=${{ matrix.scheme }}, group_id=${{ matrix.group }}, seeds=s)"
+
+      - name: Upload Control Artifact (N=500)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctrl-stats-s${{ matrix.scheme }}-g${{ matrix.group }}-sh${{ matrix.shard }}
+          path: Statistics/
+          retention-days: 2
+          if-no-files-found: ignore
+
+  merge-and-plot:
+    needs: [simulate-controls-n100, simulate-controls-n500]
+    if: always()
+    runs-on: ubuntu-latest
+    container: contiker/contiki-ng:latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Measure Exact Compiled ROM (.text) & RAM (.bss/.data) Footprint
+        run: |
+          mkdir -p /home/user Results
+          rm -rf /home/user/contiki-ng
+          ln -sfn "$GITHUB_WORKSPACE/contiki-ng-define" /home/user/contiki-ng
+          cd experiments/define-sync
+          {
+            echo "=== Compiled Binary Size Audit (DEFINE SYNC_SCHEME=1 vs 6TiSCH-MC 1S SYNC_SCHEME=2) ==="
+            for tgt in cooja z1 cc2538dk; do
+              echo "--- TARGET=$tgt ---"
+              make clean >/dev/null 2>&1 || true
+              if make -j4 TARGET=$tgt SYNC_SCHEME=1 >/dev/null 2>&1; then
+                BIN1=$(ls -1 build/$tgt/node.* 2>/dev/null | head -n 1)
+                SZ1=$(size "$BIN1" 2>/dev/null || msp430-size "$BIN1" 2>/dev/null || arm-none-eabi-size "$BIN1" 2>/dev/null || true)
+                make clean >/dev/null 2>&1 || true
+                make -j4 TARGET=$tgt SYNC_SCHEME=2 >/dev/null 2>&1 || true
+                BIN2=$(ls -1 build/$tgt/node.* 2>/dev/null | head -n 1)
+                SZ2=$(size "$BIN2" 2>/dev/null || msp430-size "$BIN2" 2>/dev/null || arm-none-eabi-size "$BIN2" 2>/dev/null || true)
+                echo "DEFINE (Scheme 1):"
+                echo "$SZ1"
+                echo "6TiSCH-MC 1S (Scheme 2):"
+                echo "$SZ2"
+              else
+                echo "Target $tgt toolchain not installed in container"
+              fi
+            done
+          } > "$GITHUB_WORKSPACE/Results/rom_footprint.txt"
+          cat "$GITHUB_WORKSPACE/Results/rom_footprint.txt"
+
+      - name: Download New Control Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: ctrl-stats-*
+          path: tmp_artifacts
+
+      - name: Merge Into Existing 30-Seed Statistics and Regenerate Plots
+        run: |
+          python3 -c '
+          import os, sys, glob
+
+          os.makedirs("Statistics", exist_ok=True)
+          merged = {}
+          downloaded_files = glob.glob("tmp_artifacts/**/*", recursive=True)
+
+          for filepath in sorted(glob.glob("tmp_artifacts/**/*_cooja_stats_.txt", recursive=True)):
+              fname = os.path.basename(filepath)
+              with open(filepath, "r") as f:
+                  for line in f:
+                      line = line.strip()
+                      if line:
+                          parts = [p.strip() for p in line.split(",") if p.strip()]
+                          if len(parts) >= 19 and float(parts[5]) > 0:
+                              seed_id = int(float(parts[12]))
+                              key = (int(float(parts[0])), int(float(parts[1])), int(float(parts[2])), int(float(parts[3])), int(float(parts[4])), seed_id)
+                              merged.setdefault(fname, {})[key] = line
+
+          if not merged:
+              print(f"FATAL ERROR: No valid Cooja rows with num_joined > 0 found (downloaded entries: {len(downloaded_files)})!")
+              sys.exit(1)
+
+          # Preserve existing Statistics/ files for schemes 1..41; only update the newly run control files
+          for fname, row_dict in merged.items():
+              out_path = os.path.join("Statistics", fname)
+              if os.path.exists(out_path):
+                  with open(out_path, "r") as f:
+                      for line in f:
+                          parts = [p.strip() for p in line.strip().split(",") if p.strip()]
+                          if len(parts) >= 19 and float(parts[5]) > 0:
+                              seed_id = int(float(parts[12]))
+                              key = (int(float(parts[0])), int(float(parts[1])), int(float(parts[2])), int(float(parts[3])), int(float(parts[4])), seed_id)
+                              row_dict.setdefault(key, line.strip())
+              sorted_lines = [row_dict[k] for k in sorted(row_dict.keys())]
+              with open(out_path, "w") as f:
+                  f.write("\n".join(sorted_lines) + "\n")
+              legacy_fname = fname.replace("_cooja_stats_.txt", "_stats_.txt")
+              if legacy_fname != fname:
+                  with open(os.path.join("Statistics", legacy_fname), "w") as f:
+                      f.write("\n".join(sorted_lines) + "\n")
+              print(f"Merged {len(sorted_lines)} real Cooja seed rows into {out_path}")
+
+          csv_merged = {}
+          for csv_file in sorted(glob.glob("tmp_artifacts/**/join_times_*.csv", recursive=True)):
+              cname = os.path.basename(csv_file)
+              with open(csv_file, "r") as f:
+                  for line in f:
+                      val = line.strip()
+                      if val:
+                          try:
+                              csv_merged.setdefault(cname, []).append(float(val))
+                          except ValueError:
+                              pass
+
+          for cname, vals in csv_merged.items():
+              vals.sort()
+              out_csv = os.path.join("Statistics", cname)
+              with open(out_csv, "w") as f:
+                  f.write("\n".join(f"{v:.4f}" for v in vals) + "\n")
+              print(f"Merged {len(vals)} per-node join timestamps into {out_csv}")
+          '
+
+          python3 scripts/plot_results.py
+
+      - name: Upload Unified Final Results & Plots
+        uses: actions/upload-artifact@v4
+        with:
+          name: FINAL-MERGED-COOJA-RESULTS
+          path: |
+            Statistics/
+            *.png
+            Plots/
+            Results/
+
+      - name: Auto-Commit Merged Results to Repository
+        run: |
+          rm -rf tmp_artifacts /tmp/new_results
+          mkdir -p /tmp/new_results
+          cp -a Statistics Plots Results /tmp/new_results/ 2>/dev/null || true
+          cp -a *.png /tmp/new_results/ 2>/dev/null || true
+
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout -f -B main origin/main
+          git clean -fd
+
+          cp -a /tmp/new_results/* . 2>/dev/null || true
+          rm -rf /tmp/new_results
+
+          git add -A Statistics/ Plots/ Results/
+          find . -maxdepth 2 -name "*.png" -exec git add {} + 2>/dev/null || true
+          git diff --staged --quiet || (git commit -m "Merge Round-7 control & DIS sensitivity runs, ROM audit, and updated plots" && git push origin main)

@@ -175,6 +175,21 @@ compute_subband_offset(uint16_t id, uint8_t tier)
 #endif
 }
 
+/* Non-zero uniform ID-hash mapper over {1, ..., C-1} (control for Scheme 42) */
+static uint8_t
+compute_nonzero_idhash_offset(uint16_t id)
+{
+  if(id <= 1) {
+    return 0;
+  }
+#if NUM_CHANNELS <= 2
+  return (uint8_t)(id % NUM_CHANNELS);
+#else
+  uint32_t mix = (((uint32_t)id * 2654435761UL) >> 16) ^ (uint32_t)id;
+  return (uint8_t)(1U + (mix % (NUM_CHANNELS - 1U)));
+#endif
+}
+
 /* Parent-alias guard shift: avoids base cell 0 for non-root DEFINE/ASSIGN nodes when C >= 4 */
 static uint8_t
 guard_shift_offset(uint8_t off, uint8_t allow_zero)
@@ -307,18 +322,20 @@ apply_scheme_schedule(void)
   uint32_t asn_now = tsch_current_asn.ls4b;
   uint32_t sf_num = (uint32_t)(asn_now / SF_LENGTH);
 
-  /* Scheme 37: 20% of pledges run stock RFC 8180 6TiSCH-MC (1S) */
+  /* Scheme 37: 20% of pledges run stock RFC 8180 Default 26S */
   uint8_t is_mixed_stock = (SYNC_SCHEME == 37 && node_id != 1 && (node_id % 5) == 0);
 
   /* Algorithm 1: Between TSCH sync and RPL DODAG join, keep (0,0) open on 3 of 4 slotframes
-     for fast DIO reception and probe candidate EB offsets every 4th slotframe during a bounded window */
+     for fast DIO reception and probe candidate EB offsets every 4th slotframe during a bounded window
+     (omitted for Scheme 45 define_nosweep to isolate candidate-sweep contribution) */
   if(!NETSTACK_ROUTING.node_has_joined() && node_id != 1) {
     uint32_t max_win_sfs = (NUM_CHANNELS * 2 < 16) ? (uint32_t)(NUM_CHANNELS * 2) : 16UL;
     uint32_t w_eb = max_win_sfs * (uint32_t)SF_LENGTH;
     uint8_t in_sweep_win = (sync_asn > 0 && asn_now >= sync_asn && (asn_now - sync_asn) < w_eb);
     uint8_t uses_alg1 = !is_mixed_stock && (
       SYNC_SCHEME == 1 || (SYNC_SCHEME >= 14 && SYNC_SCHEME <= 28) ||
-      (SYNC_SCHEME >= 33 && SYNC_SCHEME <= 38) || SYNC_SCHEME == 41
+      (SYNC_SCHEME >= 33 && SYNC_SCHEME <= 38) ||
+      (SYNC_SCHEME >= 41 && SYNC_SCHEME <= 44) || SYNC_SCHEME == 46
     );
     if(in_sweep_win && (sf_num & 3) == 3 && uses_alg1) {
       uint8_t step = (uint8_t)((sf_num >> 2) % NUM_CHANNELS);
@@ -328,8 +345,6 @@ apply_scheme_schedule(void)
       } else if(SYNC_SCHEME == 34) {
         cand_off = (uint8_t)(random_rand() % NUM_CHANNELS);
       } else if(SYNC_SCHEME == 38) {
-        /* Tier-aware start: sweep upstream parent's parity sub-band first via tsch_join_priority,
-           then cover the remaining offsets as a full permutation of {0..NUM_CHANNELS-1} */
         uint8_t half = (uint8_t)(NUM_CHANNELS / 2);
         uint8_t p_t = (tsch_join_priority > 0) ? (uint8_t)(tsch_join_priority - 1) : 0;
         if(p_t == 0) {
@@ -372,12 +387,58 @@ apply_scheme_schedule(void)
     case 28: /* DEFINE (Poisson Arrivals) */
     case 34: /* DEFINE (Random Sweep Order) */
     case 35: /* DEFINE (Late Joiners into Steady Network) */
-    case 36: /* DEFINE (Parent Failure & Rejoin) */
+    case 36: /* DEFINE (10% Relay Shutdown at t=120 s) */
     case 38: /* DEFINE (Tier-Aware Sweep Start) */
+    case 45: /* DEFINE (No Candidate Sweep — Always on (0,0) after TSCH sync) */
+    case 46: /* DEFINE (Stock RPL DIS Enabled) */
       update_rank_tier(1, 1, 0, 0);
       tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
       enable_keepalive = 1;
       break;
+
+    case 42: /* ID-Hash Non-Zero {1..C-1} + Guard + ADAPT (Control isolating offset-0 exclusion from tier parity) */
+    {
+      update_rank_tier(1, 1, 0, 0); /* Keep cached_h_u tracked for conflict-graph diagnostics */
+      uint16_t pid = get_preferred_parent_id();
+      parent_ch_offset = compute_nonzero_idhash_offset(pid);
+      ch_offset_u = compute_nonzero_idhash_offset(node_id);
+      if(node_id != 1 && ch_offset_u == parent_ch_offset) {
+        ch_offset_u = guard_shift_offset(ch_offset_u, 0);
+      }
+      tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
+      enable_keepalive = 1;
+      break;
+    }
+
+    case 43: /* Node-ID Parity (u mod 2) + In-Band Hash + Guard + ADAPT (Control isolating rank-tier parity vs. ID parity) */
+    {
+      update_rank_tier(1, 1, 0, 0); /* Keep cached_h_u tracked for conflict-graph diagnostics */
+      uint16_t pid = get_preferred_parent_id();
+      uint8_t p_id_band = (pid <= 1) ? 0 : (uint8_t)(1U + (pid & 1U));
+      uint8_t u_id_band = (node_id == 1) ? 0 : (uint8_t)(1U + (node_id & 1U));
+      parent_ch_offset = compute_subband_offset(pid, p_id_band);
+      ch_offset_u = compute_subband_offset(node_id, u_id_band);
+      if(node_id != 1 && ch_offset_u == parent_ch_offset) {
+        ch_offset_u = guard_shift_offset(ch_offset_u, 0);
+      }
+      tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
+      enable_keepalive = 1;
+      break;
+    }
+
+    case 44: /* Pairing + ADAPT (Grafted, Alg. 1+KA) */
+    {
+      uint16_t pid = get_preferred_parent_id();
+      uint8_t half = (uint8_t)(NUM_CHANNELS / 2);
+      uint8_t base_pair = (uint8_t)((node_id / 2) % half);
+      uint8_t p_base = (uint8_t)((pid / 2) % half);
+      ch_offset_u = (sf_num & 1) ? (uint8_t)(base_pair + half) : base_pair;
+      parent_ch_offset = (sf_num & 1) ? (uint8_t)(p_base + half) : p_base;
+      tx_prob_u8 = compute_adapt_q_u8(asn_now, nbrs, 1, 1, 1);
+      enable_keepalive = 1;
+      ka_allow_zero = 1;
+      break;
+    }
 
     case 37: /* DEFINE (Mixed 80% DEFINE / 20% Stock RFC 8180 Default 26S) */
       if(is_mixed_stock) {
@@ -524,6 +585,7 @@ apply_scheme_schedule(void)
     case 8:  /* EASE [27]: textbook P_eb = 1 / (1 + nbr_u) */
     case 30: /* EASE (Poisson Arrivals) */
     case 32: /* EASE (Lossy UDGM 85% PRR) */
+    case 48: /* EASE (Stock RPL DIS Enabled) */
     {
       uint16_t raw_p = (255U / (uint16_t)(1 + (nbrs > 0 ? nbrs : 0))) / (uint16_t)EB_MULT;
       ch_offset_u = (uint8_t)(((uint32_t)node_id * 2654435761UL) % NUM_CHANNELS);
@@ -533,6 +595,7 @@ apply_scheme_schedule(void)
 
     case 9:  /* Pairing (1S) [19] */
     case 39: /* Pairing (Tuned 2S) */
+    case 47: /* Pairing (1S, Stock RPL DIS Enabled) */
     {
       uint8_t base_pair = (uint8_t)((node_id / 2) % (NUM_CHANNELS / 2));
       ch_offset_u = (sf_num & 1) ? (uint8_t)(base_pair + (NUM_CHANNELS / 2)) : base_pair;
@@ -548,6 +611,7 @@ apply_scheme_schedule(void)
 
     case 13: /* EBMC (Tuned 2S) */
     case 29: /* EBMC (Tuned 2S, Poisson Arrivals) */
+    case 49: /* EBMC (Tuned 2S, Stock RPL DIS Enabled) */
       ch_offset_u = (uint8_t)((node_id % (NUM_CHANNELS / 2)) * 2);
       tx_prob_u8 = 64;
       break;
@@ -762,7 +826,7 @@ PROCESS_THREAD(define_node_process, ev, data)
   }
 
 #if PARENT_FAILURE
-  /* Controlled relay failure: 10% of non-root relays shut down at t = 120 s to test failover/rejoin */
+  /* Controlled relay shutdown: 10% of non-root relays shut down at t = 120 s */
   if(node_id != 1 && (node_id % 10) == 2) {
     clock_time_t now = clock_time();
     clock_time_t target = (clock_time_t)(120 * CLOCK_SECOND);

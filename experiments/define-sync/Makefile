@@ -49,6 +49,10 @@ ifdef N_NODES
 CFLAGS += -DN_NODES=$(N_NODES)
 endif
 
+ifdef ENABLE_RPL_DIS
+CFLAGS += -DENABLE_RPL_DIS=$(ENABLE_RPL_DIS)
+endif
+
 CFLAGS += -fno-stack-protector
 
 include $(CONTIKI)/Makefile.include

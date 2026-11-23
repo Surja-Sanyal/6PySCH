@@ -9,13 +9,21 @@
 /* RFC 8180 Section 6.1: MinHopRankIncrease = 256 */
 #define RPL_CONF_MIN_HOPRANKINC 256
 
+#ifndef ENABLE_RPL_DIS
+#define ENABLE_RPL_DIS 0
+#endif
+
 /* Standard RFC 6206 / RFC 6550 / RFC 6775 dense-network settings
    (applied identically across DEFINE and all comparison/ablation schemes) */
 #define RPL_CONF_DIO_INTERVAL_MIN 11                /* 2^11 ms = 2.048 s */
 #define RPL_CONF_DIO_INTERVAL_DOUBLINGS 3           /* I_max = 2^14 ms = 16.384 s (avoids cell-0 DIO deadlock) */
 #define RPL_CONF_DIO_REDUNDANCY 3                   /* RFC 6206 k=3 prevents DIO storms on cell (0,0) */
+#if ENABLE_RPL_DIS
+/* Stock Contiki-NG RPL-Lite DIS defaults (DIS_START_DELAY = 5 s, DIS_INTERVAL = 60 s) for C1 sensitivity check */
+#else
 #define RPL_CONF_DIS_START_DELAY 3600               /* Passive DIO reception; prevent 450-node DIS storm */
 #define RPL_CONF_DIS_INTERVAL (3600 * CLOCK_SECOND)
+#endif
 #define RPL_CONF_DAO_DELAY (120 * CLOCK_SECOND)     /* Stagger upward DAOs away from formation wave */
 #define RPL_CONF_WITH_DAO_ACK 0
 #define RPL_CONF_PROBING_INTERVAL (300 * CLOCK_SECOND)
