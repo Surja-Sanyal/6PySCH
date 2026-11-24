@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use DEFINE or 6PySCH, please cite this release."
+title: "6PySCH and Contiki-NG DEFINE Evaluation Artifact"
+version: "v1.0"
+date-released: "2026-11-24"
+authors:
+  - family-names: "Sanyal"
+    given-names: "Surja"
+    orcid: "https://orcid.org/0000-0002-1308-9433"
+  - family-names: "Khatua"
+    given-names: "Manas"
+    orcid: "https://orcid.org/0000-0002-8329-2429"
+repository-code: "https://github.com/Surja-Sanyal/6PySCH"
