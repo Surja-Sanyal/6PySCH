@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - 'scripts/plot_results.py'
+      - '.github/workflows/plot-only.yml'
 
 permissions:
   contents: write
@@ -31,11 +32,25 @@ jobs:
         run: |
           pip install --quiet numpy matplotlib
 
-      - name: Run plot_results.py on Existing Statistics
+      - name: Purge Stale 5-Seed 64-Entry Files and Regenerate Clean Results
         run: |
+          python3 -c '
+          import glob, os
+          keep = {
+              "_p_64nbr_cooja_stats_.txt", "_p_64nbr_stats_.txt",
+              "_s_64nbr_cooja_stats_.txt", "_s_64nbr_stats_.txt",
+              "_ebmc_2s_64nbr_cooja_stats_.txt", "_ebmc_2s_64nbr_stats_.txt",
+          }
+          removed = []
+          for fp in sorted(glob.glob("Statistics/*_64nbr_*stats_.txt")):
+              if os.path.basename(fp) not in keep:
+                  os.remove(fp)
+                  removed.append(fp)
+          print(f"Removed {len(removed)} stale 5-seed 64nbr files from Statistics/")
+          '
           python3 scripts/plot_results.py
 
-      - name: Upload Updated Plots Artifact
+      - name: Upload Updated Plots & Tables Artifact
         uses: actions/upload-artifact@v4
         with:
           name: UPDATED-PLOTS-AND-RESULTS
@@ -44,8 +59,9 @@ jobs:
             Plots/
             Results/
             Results/table_iv_real.tex
+            Results/table_v_real.tex
 
-      - name: Auto-Commit Merged Results to Repository
+      - name: Auto-Commit Clean Statistics, Tables, and Plots
         run: |
           rm -rf tmp_artifacts /tmp/new_results
           mkdir -p /tmp/new_results
@@ -59,9 +75,10 @@ jobs:
           git checkout -f -B main origin/main
           git clean -fd
 
+          rm -rf Statistics Plots Results
           cp -a /tmp/new_results/* . 2>/dev/null || true
           rm -rf /tmp/new_results
 
           git add -A Statistics/ Plots/ Results/
           find . -maxdepth 2 -name "*.png" -exec git add {} + 2>/dev/null || true
-          git diff --staged --quiet || (git commit -m "Auto-update merged multi-seed Cooja statistics, CDF plot, and Figs 7-12 PDFs" && git push origin main)
+          git diff --staged --quiet || (git commit -m "Purge stale 5-seed 64nbr files and regenerate clean 30-seed tables, CSV, and plots" && git push origin main)

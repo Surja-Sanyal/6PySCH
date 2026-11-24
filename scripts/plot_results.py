@@ -25,6 +25,9 @@ HORIZON_S      = 300.0                     # Exact Cooja simulation horizon (mat
 SCAN_POWER_W   = 3.0 * 0.0188              # 0.0564 W continuous RX scan power
 STRAND_J       = SCAN_POWER_W * HORIZON_S  # 16.92 J continuous-RX stranding upper bound over 300 s
 
+# Only these three schemes were evaluated with a full 30-seed NBR_CAP=64 campaign
+VERIFIED_64NBR_PREFIXES = {"p", "s", "ebmc_2s"}
+
 MECHANISMS = {
     "p":   ("DEFINE",     "#0044cc", "o", "-",                   2.5,  "#0044cc"),
     "e":   ("6TiSCH-MC",  "#e66100", "s", "--",                  1.85, "white"),
@@ -56,57 +59,64 @@ TABLE_IV_BASELINES = [
     ("s",       "EASE"),
 ]
 
-TABLE_IV_ROWS_SPEC = [
-    ("e",                  "6TiSCH-MC ($I_{eb}=1S$) \\cite{vilajosana2017minimal}"),
-    ("mc_4s",              "6TiSCH-MC (Tuned $I_{eb}=4S$)"),
-    ("mc_26s",             "6TiSCH-MC (Default $I_{eb}=26S$)"),
-    ("c",                  "CSMJ \\cite{chang2024csmj}"),
-    ("a_2",                "ATP: 2 \\cite{karalis2018atp}"),
-    ("r",                  "EDBA-SA \\cite{khoufi2018enhanced}"),
-    ("d",                  "ECV-SA \\cite{vogli2018fast}"),
-    ("pair",               "Pairing ($I_{eb}=1S$) \\cite{pairing2024icufn}"),
-    ("pair_2s",            "Pairing (Tuned $I_{eb}=2S$)"),
-    ("t",                  "TRGB ($I_{eb}=1S$) \\cite{kalita2023trgb}"),
-    ("trgb_2s",            "TRGB (Tuned $I_{eb}=2S$)"),
-    ("ebmc",               "EBMC ($I_{eb}=1S$) \\cite{park2025ebmc}"),
-    ("ebmc_2s",            "EBMC (Tuned $I_{eb}=2S$)"),
-    ("s",                  "EASE \\cite{kalita2025ease}"),
+TABLE_IV_LATEX_SPEC = [
+    ("e",       "6TiSCH-MC ($I_{eb}=1S$) \\cite{vilajosana2017minimal}"),
+    ("mc_4s",   "6TiSCH-MC (Tuned $I_{eb}=4S$)"),
+    ("mc_26s",  "6TiSCH-MC (Default $I_{eb}=26S$)"),
+    ("c",       "CSMJ \\cite{chang2024csmj}"),
+    ("a_2",     "ATP: 2 \\cite{karalis2018atp}"),
+    ("r",       "EDBA-SA \\cite{khoufi2018enhanced}"),
+    ("d",       "ECV-SA \\cite{vogli2018fast}"),
+    ("pair",    "Pairing ($I_{eb}=1S$) \\cite{pairing2024icufn}"),
+    ("pair_2s", "Pairing (Tuned $I_{eb}=2S$)"),
+    ("t",       "TRGB ($I_{eb}=1S$) \\cite{kalita2023trgb}"),
+    ("trgb_2s", "TRGB (Tuned $I_{eb}=2S$)"),
+    ("ebmc",    "EBMC ($I_{eb}=1S$) \\cite{park2025ebmc}"),
+    ("ebmc_2s", "EBMC (Tuned $I_{eb}=2S$)"),
+    ("s",       "EASE \\cite{kalita2025ease}"),
+    ("p",       "\\textbf{\\texttt{DEFINE} (Full)}"),
+]
+
+TABLE_V_LATEX_SPEC = [
     ("ease_adapt",         "EASE + \\texttt{ADAPT} (Grafted, Alg.\\ 1+KA)"),
     ("ebmc_adapt",         "EBMC + \\texttt{ADAPT} (Grafted, Alg.\\ 1+KA)"),
     ("pair_adapt",         "Pairing + \\texttt{ADAPT} (Grafted, Alg.\\ 1+KA)"),
     ("idhash_guard_adapt", "ID-Hash + Guard + \\texttt{ADAPT} (Asc.\\ Sweep)"),
     ("idhash_rev",         "ID-Hash + Guard + \\texttt{ADAPT} (Rev.\\ Sweep)"),
-    ("idhash_nonzero",     "ID-Hash Non-Zero + Guard + \\texttt{ADAPT} (Control)"),
+    ("idhash_nonzero",     "ID-Hash Non-Zero + Guard + \\texttt{ADAPT}"),
     ("idparity_assign",    "Node-ID Parity + In-Band Hash + Guard + \\texttt{ADAPT}"),
+    ("define_rev",         "\\texttt{DEFINE} (Reversed Sweep Order)"),
+    ("define_rand",        "\\texttt{DEFINE} (Random Sweep Order)"),
+    ("define_tierstart",   "\\texttt{DEFINE} (Tier-Aware Sweep Start)"),
     ("define_nosweep",     "\\texttt{DEFINE} (No Candidate Sweep)"),
-    ("assign_hyst",        "\\texttt{ASSIGN} (Hysteresis Only, No Refresh/Guard)"),
-    ("assign_ref",         "\\texttt{ASSIGN} (Refresh Only, No Guard, $1S$)"),
-    ("assign_guard",       "\\texttt{ASSIGN} (Guard Only, Hysteresis, $1S$)"),
-    ("assign_both",        "\\texttt{ASSIGN}-Only (Refresh + Guard, $1S$)"),
+    ("assign_hyst",        "\\texttt{ASSIGN}-Only (No Guard, Hyst./Ref., $1S$)"),
+    ("assign_guard",       "\\texttt{ASSIGN}-Only (With Guard, Hyst./Ref., $1S$)"),
     ("adapt_age",          "\\texttt{ADAPT} (Age Only, Cell 0)"),
     ("adapt_dens",         "\\texttt{ADAPT} (Density Only, Cell 0)"),
     ("adapt_nophase",      "\\texttt{ADAPT} (No Phase $\\phi_u=0$, Cell 0)"),
     ("adapt_full",         "\\texttt{ADAPT}-Only (Full, Cell 0)"),
     ("define_noka",        "\\texttt{DEFINE} (No Keepalive)"),
-    ("ebmc_mrm",           "EBMC ($I_{eb}=1S$, Lossy UDGM 85\\% PRR)"),
-    ("ease_mrm",           "EASE (Lossy UDGM 85\\% PRR)"),
-    ("define_hoptier_mrm", "\\texttt{DEFINE} (Hop-Count Tier, Lossy UDGM 85\\% PRR)"),
-    ("define_mrm",         "\\texttt{DEFINE} (Lossy UDGM 85\\% PRR)"),
-    ("define_rev",         "\\texttt{DEFINE} (Reversed Sweep Order)"),
-    ("define_rand",        "\\texttt{DEFINE} (Random Sweep Order)"),
-    ("define_tierstart",   "\\texttt{DEFINE} (Tier-Aware Sweep Start)"),
+    ("ebmc_mrm",           "EBMC ($I_{eb}=1S$, Lossy UDGM $85\\%$ PRR)"),
+    ("ease_mrm",           "EASE (Lossy UDGM $85\\%$ PRR)"),
+    ("define_hoptier_mrm", "\\texttt{DEFINE} (Hop-Count Tier, Lossy $85\\%$ PRR)"),
+    ("define_mrm",         "\\texttt{DEFINE} (Lossy UDGM $85\\%$ PRR)"),
     ("ebmc_2s_poisson",    "EBMC (Tuned $2S$, Poisson Arrivals, $\\lambda=5\\text{ /s}$)"),
     ("ease_poisson",       "EASE (Poisson Arrivals, $\\lambda=5\\text{ /s}$)"),
     ("define_poisson",     "\\texttt{DEFINE} (Poisson Arrivals, $\\lambda=5\\text{ /s}$)"),
-    ("define_late",        "\\texttt{DEFINE} (Late Joiners, 20\\% at $t=150\\text{ s}$)"),
+    ("define_late",        "\\texttt{DEFINE} (Late Joiners, $20\\%$ at $t=150\\text{ s}$)"),
     ("define_fail",        "\\texttt{DEFINE} (10\\% Relay Shutdown at $t=120\\text{ s}$)"),
-    ("define_mixed",       "\\texttt{DEFINE} (Mixed 80\\% DEFINE / 20\\% Stock RFC 8180)"),
+    ("define_mixed",       "\\texttt{DEFINE} (Mixed $80\\%$ DEFINE / $20\\%$ Stock $26S$)"),
     ("define_dis",         "\\texttt{DEFINE} (Stock RPL DIS Enabled)"),
     ("pair_dis",           "Pairing ($I_{eb}=1S$, Stock RPL DIS Enabled)"),
     ("ease_dis",           "EASE (Stock RPL DIS Enabled)"),
     ("ebmc_2s_dis",        "EBMC (Tuned $2S$, Stock RPL DIS Enabled)"),
-    ("p",                  "\\textbf{\\texttt{DEFINE} (Full, 16-Entry Table)}"),
 ]
+
+ALL_49_PREFIXES = (
+    [p for p, _ in TABLE_IV_LATEX_SPEC]
+    + [p for p, _ in TABLE_V_LATEX_SPEC]
+    + ["assign_ref", "assign_both"]
+)
 
 
 def _t_crit_95(n):
@@ -754,8 +764,8 @@ def holm_adjust(pvals):
     return adj
 
 
-def generate_latex_table_iv_and_stats():
-    def ms_str(arr, fmt="%.2f"):
+def generate_latex_tables_and_stats():
+    def ms_str(arr, fmt="%.1f"):
         m = float(np.mean(arr))
         se = float(np.std(arr, ddof=1) / math.sqrt(len(arr))) if len(arr) > 1 else 0.0
         return f"${fmt % m} \\pm {fmt % se}$"
@@ -766,44 +776,14 @@ def generate_latex_table_iv_and_stats():
             return np.concatenate([arr, np.full(target_n - len(arr), fill_val, dtype=float)])
         return arr
 
-    def format_row(prefix, label, n_target, target_seeds, is_64_only=False):
-        d16 = load_raw_data(prefix)
-        m16 = select_benchmark_rows(d16, n_target)
-        if len(m16) == 0:
-            return None
-
-        met = compute_per_seed_metrics(m16)
-        comp_full = pad_collapsed(met["comp_pct"], target_seeds, 0.0)
-        rmst_full = pad_collapsed(met["rmst_300_s"], target_seeds, HORIZON_S)
-        m_join_100s = met["m_join_s"] / 100.0
-        p95_100s = met["p95_s"] / 100.0
-        coll_10k = m16[:, 9] * 1e-4
-        eb_rate = float(np.mean(m16[:, 13])) if m16.shape[1] > 13 else 1.0
-
-        if is_64_only:
-            c16_str = "---"
-            c64_str = ms_str(comp_full, "%.1f")
-        else:
-            c16_str = ms_str(comp_full, "%.1f")
-            d64 = load_raw_data(f"{prefix}_64nbr")
-            m64 = select_benchmark_rows(d64, n_target)
-            if len(m64) > 0:
-                comp64 = pad_collapsed((m64[:, 5] / float(n_target)) * 100.0, target_seeds, 0.0)
-                c64_str = ms_str(comp64, "%.1f")
-            else:
-                c64_str = "---"
-
-        return (
-            f"{label} & ${eb_rate:.2f}$ & {ms_str(rmst_full, '%.1f')} & {ms_str(m_join_100s)} & "
-            f"{ms_str(p95_100s)} & {ms_str(coll_10k)} & {c16_str} & "
-            f"{c64_str} & {ms_str(met['tx_mj_per_joined'], '%.2f')} & {ms_str(met['e_meas_j_per_node'], '%.2f')} \\\\"
-        )
-
-    out_lines = [
-        "% Auto-generated strictly from multi-seed Cooja logs in Statistics/",
-        "% Exact Cooja horizon T_max = 300 s (sim_timeout_ms = 300000); default NBR_CAP = 16 vs. 64",
-        "% Collapsed zero-join seeds are counted as 0% completion and RMST_300 = 300 s across all n seeds",
-        "% Columns: Scheme | EB Rate | RMST_300 (s) | Mean m_join (x10^4 sl) | P95 (x10^4 sl) | Collisions (x10^4) | 16-Nbr Comp (%) | 64-Entry Comp (%) | EB TX e_tx (mJ/node) | Measured E_meas (J/node)"
+    t4_lines = [
+        "% Auto-generated strictly from 30-seed Cooja logs in Statistics/ (no stale 5-seed 64nbr rows)",
+        "% Exact Cooja horizon T_max = 300 s; collapsed zero-join seeds counted as 0% and RMST_300 = 300 s",
+        "% Columns: Scheme | EB/SF | RMST_300 (s) | TSCH Sync m_sync (s) | Mean m_join (s) | Cond. P95 (s) | Collisions (x10^4) | Comp. (%) | EB TX e_tx (mJ/node) | Measured E_meas (J/node)"
+    ]
+    t5_lines = [
+        "% Auto-generated strictly from 30-seed Cooja logs in Statistics/",
+        "% Columns: Variant | EB/SF (500) | RMST_300 s (500) | m_join s (500) | P95 s (500) | Coll x10^4 (500) | Comp % (500) | E_meas J (500) | Comp % (100) | RMST_300 s (100)"
     ]
     csv_lines = [
         "n_nodes,prefix,nbr_cap,seed,eb_rate,rmst_300_s,m_join_s,m_sync_s,post_sync_s,p95_s,"
@@ -818,15 +798,36 @@ def generate_latex_table_iv_and_stats():
         p_ref = select_benchmark_rows(load_raw_data("p"), n_val)
         target_seeds = len(p_ref) if len(p_ref) > 0 else 30
 
-        out_lines.append(f"% --- N = {n_val} (target_seeds = {target_seeds}) ---")
+        t4_lines.append(f"% --- N = {n_val} (target_seeds = {target_seeds}) ---")
         report_lines.append(f"\n--- Benchmark N = {n_val} (100m x 100m, C=16, S=61, I_eb=1S, T_max={HORIZON_S:.0f}s, target_n={target_seeds}) ---")
-        for prefix, lbl in TABLE_IV_ROWS_SPEC:
-            line = format_row(prefix, lbl, n_val, target_seeds)
-            if line:
-                out_lines.append(line)
-            for cap_val, pfx in ((16, prefix), (64, f"{prefix}_64nbr")):
+
+        # Table IV rows (14 baselines + DEFINE, directly in seconds with TSCH Sync m_sync)
+        for prefix, lbl in TABLE_IV_LATEX_SPEC:
+            rows = select_benchmark_rows(load_raw_data(prefix), n_val)
+            if len(rows) == 0:
+                continue
+            met = compute_per_seed_metrics(rows)
+            comp_full = pad_collapsed(met["comp_pct"], target_seeds, 0.0)
+            rmst_full = pad_collapsed(met["rmst_300_s"], target_seeds, HORIZON_S)
+            eb_rate = float(np.mean(rows[:, 13])) if rows.shape[1] > 13 else 1.0
+            t4_lines.append(
+                f"{lbl} & ${eb_rate:.2f}$ & {ms_str(rmst_full, '%.1f')} & "
+                f"{ms_str(met['m_sync_s'], '%.1f')} & {ms_str(met['m_join_s'], '%.1f')} & "
+                f"{ms_str(met['p95_s'], '%.1f')} & {ms_str(rows[:, 9] * 1e-4, '%.2f')} & "
+                f"{ms_str(comp_full, '%.1f')} & {ms_str(met['tx_mj_per_joined'], '%.2f')} & "
+                f"{ms_str(met['e_meas_j_per_node'], '%.2f')} \\\\"
+            )
+
+        # Per-seed CSV and summary report across all 49 configurations (strictly verified 30-seed 64nbr only)
+        for prefix in ALL_49_PREFIXES:
+            caps_to_export = [(16, prefix)]
+            if prefix in VERIFIED_64NBR_PREFIXES:
+                caps_to_export.append((64, f"{prefix}_64nbr"))
+            for cap_val, pfx in caps_to_export:
                 rows = select_benchmark_rows(load_raw_data(pfx), n_val)
                 if len(rows) == 0:
+                    continue
+                if cap_val == 64 and len(rows) < target_seeds:
                     continue
                 met = compute_per_seed_metrics(rows)
                 for idx in range(len(rows)):
@@ -874,11 +875,6 @@ def generate_latex_table_iv_and_stats():
                         f"tx={np.mean(met['tx_mj_per_joined']):5.2f}mJ | E_meas={np.mean(met['e_meas_j_per_node']):5.2f}J | "
                         f"E_ub={np.mean(met['e300_j_per_node']):5.2f}J{occ_str}"
                     )
-
-        if n_val == 500:
-            line64 = format_row("p_64nbr", "\\textbf{\\texttt{DEFINE} (Full, 64-Entry Table)}", 500, target_seeds, is_64_only=True)
-            if line64:
-                out_lines.append(line64)
 
         # Paired two-sided Wilcoxon + Holm step-down + 95% CIs across all 14 baselines (collapsed seeds included on comp & RMST)
         if len(p_ref) > 0 and p_ref.shape[1] > 12:
@@ -941,23 +937,19 @@ def generate_latex_table_iv_and_stats():
                     for nm, md, ci, rp, ap in zip(tested_names, diffs, cis, raw_p, adj_p):
                         report_lines.append(f"    vs {nm:30s}: diff={md:+9.2f} +/- {ci:7.2f} (95% CI) | p_raw={rp:.6g}, p_Holm={ap:.6g}")
 
-            # Paired tests for DEFINE vs Round-7 attribution controls (if present)
-            ctrl_list = [
+            # Paired tests for DEFINE vs Round-7 attribution controls
+            ctrl_lines = []
+            for c_pfx, c_lbl in (
                 ("idhash_nonzero",  "ID-Hash Non-Zero + Guard + ADAPT"),
                 ("idparity_assign", "Node-ID Parity + In-Band Hash + ADAPT"),
                 ("pair_adapt",      "Pairing + ADAPT (Grafted)"),
                 ("define_nosweep",  "DEFINE (No Candidate Sweep)"),
-            ]
-            ctrl_lines = []
-            for c_pfx, c_lbl in ctrl_list:
+            ):
                 c_rows = select_benchmark_rows(load_raw_data(c_pfx), n_val)
                 if len(c_rows) == 0 or c_rows.shape[1] <= 12:
                     continue
                 c_met = compute_per_seed_metrics(c_rows)
-                c_by_seed = {
-                    int(round(c_rows[i, 12])): (c_met["comp_pct"][i], c_met["rmst_300_s"][i], c_rows[i, 9], c_met["e_meas_j_per_node"][i])
-                    for i in range(len(c_rows))
-                }
+                c_by_seed = {int(round(c_rows[i, 12])): (c_met["comp_pct"][i], c_met["rmst_300_s"][i]) for i in range(len(c_rows))}
                 common = sorted(set(p_by_seed.keys()) & set(c_by_seed.keys()))
                 if len(common) >= 3:
                     dc = np.array([p_by_seed[s][0] - c_by_seed[s][0] for s in common])
@@ -971,38 +963,57 @@ def generate_latex_table_iv_and_stats():
                 report_lines.append("  [Paired Wilcoxon — DEFINE vs Round-7 Attribution Controls]:")
                 report_lines.extend(ctrl_lines)
 
-            # Paired tests for Stock RPL DIS Sensitivity: define_dis vs pair_dis, ease_dis, ebmc_2s_dis
+            # Paired tests + Holm step-down for Stock RPL DIS Sensitivity (3 baselines)
             dd_rows = select_benchmark_rows(load_raw_data("define_dis"), n_val)
             if len(dd_rows) > 0 and dd_rows.shape[1] > 12:
                 dd_met = compute_per_seed_metrics(dd_rows)
-                dd_by_seed = {
-                    int(round(dd_rows[i, 12])): (dd_met["comp_pct"][i], dd_met["rmst_300_s"][i], dd_rows[i, 9], dd_met["e_meas_j_per_node"][i])
-                    for i in range(len(dd_rows))
-                }
-                dis_lines = []
+                dd_by_seed = {int(round(dd_rows[i, 12])): (dd_met["comp_pct"][i], dd_met["rmst_300_s"][i]) for i in range(len(dd_rows))}
+                dis_peers, dis_n, dis_dc, dis_dr, dis_pc, dis_pr = [], [], [], [], [], []
                 for b_pfx, b_lbl in (("pair_dis", "Pairing 1S (DIS)"), ("ease_dis", "EASE (DIS)"), ("ebmc_2s_dis", "EBMC 2S (DIS)")):
                     b_rows = select_benchmark_rows(load_raw_data(b_pfx), n_val)
                     if len(b_rows) == 0 or b_rows.shape[1] <= 12:
                         continue
                     b_met = compute_per_seed_metrics(b_rows)
-                    b_by_seed = {
-                        int(round(b_rows[i, 12])): (b_met["comp_pct"][i], b_met["rmst_300_s"][i], b_rows[i, 9], b_met["e_meas_j_per_node"][i])
-                        for i in range(len(b_rows))
-                    }
+                    b_by_seed = {int(round(b_rows[i, 12])): (b_met["comp_pct"][i], b_met["rmst_300_s"][i]) for i in range(len(b_rows))}
                     common = sorted(set(dd_by_seed.keys()) & set(b_by_seed.keys()))
                     if len(common) >= 3:
-                        dc = np.array([dd_by_seed[s][0] - b_by_seed[s][0] for s in common])
-                        dr = np.array([dd_by_seed[s][1] - b_by_seed[s][1] for s in common])
-                        pc = wilcoxon_two_sided([dd_by_seed[s][0] for s in common], [b_by_seed[s][0] for s in common])
-                        pr = wilcoxon_two_sided([dd_by_seed[s][1] for s in common], [b_by_seed[s][1] for s in common])
-                        dis_lines.append(
-                            f"    DEFINE (DIS) vs {b_lbl:18s} (n={len(common)}): d_comp={dc.mean():+5.2f} pts (p={pc:.4g}) | d_RMST={dr.mean():+6.2f} s (p={pr:.4g})"
+                        dis_peers.append(b_lbl)
+                        dis_n.append(len(common))
+                        dis_dc.append(float(np.mean([dd_by_seed[s][0] - b_by_seed[s][0] for s in common])))
+                        dis_dr.append(float(np.mean([dd_by_seed[s][1] - b_by_seed[s][1] for s in common])))
+                        dis_pc.append(wilcoxon_two_sided([dd_by_seed[s][0] for s in common], [b_by_seed[s][0] for s in common]))
+                        dis_pr.append(wilcoxon_two_sided([dd_by_seed[s][1] for s in common], [b_by_seed[s][1] for s in common]))
+                if dis_peers:
+                    adj_pc = holm_adjust(dis_pc)
+                    adj_pr = holm_adjust(dis_pr)
+                    report_lines.append("  [Paired Wilcoxon + Holm (3 baselines) — Stock RPL DIS Sensitivity]:")
+                    for nm, nc, dc, dr, pc, apc, pr, apr in zip(dis_peers, dis_n, dis_dc, dis_dr, dis_pc, adj_pc, dis_pr, adj_pr):
+                        report_lines.append(
+                            f"    DEFINE (DIS) vs {nm:18s} (n={nc}): d_comp={dc:+6.2f} pts (p={pc:.4g}, p_Holm={apc:.4g}) | "
+                            f"d_RMST={dr:+6.2f} s (p={pr:.4g}, p_Holm={apr:.4g})"
                         )
-                if dis_lines:
-                    report_lines.append("  [Paired Wilcoxon — Stock RPL DIS Sensitivity]:")
-                    report_lines.extend(dis_lines)
 
-    # Also log Mixed 80/20 RFC 8180 coexistence at N=200 if present
+    # Auto-generate Table V directly in seconds
+    target_500 = max(1, len(select_benchmark_rows(load_raw_data("p"), 500)))
+    target_100 = max(1, len(select_benchmark_rows(load_raw_data("p"), 100)))
+    for pfx, lbl in TABLE_V_LATEX_SPEC:
+        r5 = select_benchmark_rows(load_raw_data(pfx), 500)
+        r1 = select_benchmark_rows(load_raw_data(pfx), 100)
+        if len(r5) == 0 or len(r1) == 0:
+            continue
+        m5 = compute_per_seed_metrics(r5)
+        m1 = compute_per_seed_metrics(r1)
+        eb5 = float(np.mean(r5[:, 13])) if r5.shape[1] > 13 else 1.0
+        t5_lines.append(
+            f"{lbl} & ${eb5:.2f}$ & {ms_str(pad_collapsed(m5['rmst_300_s'], target_500, HORIZON_S), '%.1f')} & "
+            f"{ms_str(m5['m_join_s'], '%.1f')} & {ms_str(m5['p95_s'], '%.1f')} & "
+            f"{ms_str(r5[:, 9] * 1e-4, '%.2f')} & {ms_str(pad_collapsed(m5['comp_pct'], target_500, 0.0), '%.1f')} & "
+            f"{ms_str(m5['e_meas_j_per_node'], '%.2f')} & "
+            f"{ms_str(pad_collapsed(m1['comp_pct'], target_100, 0.0), '%.1f')} & "
+            f"{ms_str(pad_collapsed(m1['rmst_300_s'], target_100, HORIZON_S), '%.1f')} \\\\"
+        )
+
+    # Mixed 80/20 RFC 8180 coexistence check at N=200
     mixed_200 = select_benchmark_rows(load_raw_data("define_mixed"), 200)
     if len(mixed_200) > 0:
         met200 = compute_per_seed_metrics(mixed_200)
@@ -1014,7 +1025,9 @@ def generate_latex_table_iv_and_stats():
         )
 
     with open(os.path.join(RESULTS_DIR, "table_iv_real.tex"), "w") as f:
-        f.write("\n".join(out_lines) + "\n")
+        f.write("\n".join(t4_lines) + "\n")
+    with open(os.path.join(RESULTS_DIR, "table_v_real.tex"), "w") as f:
+        f.write("\n".join(t5_lines) + "\n")
     with open(os.path.join(RESULTS_DIR, "table_iv_per_seed.csv"), "w") as f:
         f.write("\n".join(csv_lines) + "\n")
     with open(os.path.join(RESULTS_DIR, "stats_report.txt"), "w") as f:
@@ -1025,7 +1038,7 @@ if __name__ == "__main__":
     save_standalone_legend()
     generate_markov_figure6_from_simulation()
     generate_wavefront_cdf_plot()
-    generate_latex_table_iv_and_stats()
+    generate_latex_tables_and_stats()
 
     rmst_lbl  = r"$\mathrm{RMST}_{300}$ (s)"
     mjoin_lbl = r"Cond. join ($\times 10^4$ sl)"
@@ -1044,10 +1057,10 @@ if __name__ == "__main__":
     plot_sweep(0, f_nodes, 9, dens_lbl, coll_lbl,  "Fig10c_density_collisions.png",  "densitywise_average_collisions.pdf", x_scale=0.01, y_scale=1e-4, mode="densitywise")
     plot_sweep(0, f_nodes, 5, dens_lbl, comp_lbl,  "Fig10d_density_completion.png",  "densitywise_dodag_completion.pdf", x_scale=0.01, is_pct=True, mode="densitywise")
 
-    plot_sweep(0, f_nodes, 19, dens_lbl, r"Tx energy (mJ/node)",           "Fig11a_tx_energy.png",    "densitywise_transmission_energy.pdf", x_scale=0.01, is_tx_energy=True, mode="densitywise")
-    plot_sweep(0, f_nodes, 11, dens_lbl, r"Scan energy (J/node)",          "Fig11b_rx_energy.png",    "densitywise_reception_energy.pdf", x_scale=0.01, is_rx_energy=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 19, dens_lbl, r"Tx energy (mJ/node)",                  "Fig11a_tx_energy.png",    "densitywise_transmission_energy.pdf", x_scale=0.01, is_tx_energy=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 11, dens_lbl, r"Scan energy (J/node)",                 "Fig11b_rx_energy.png",    "densitywise_reception_energy.pdf", x_scale=0.01, is_rx_energy=True, mode="densitywise")
     plot_sweep(0, f_nodes, 10, dens_lbl, r"Bound $E^{\mathrm{ub}}_{300}$ (J/node)", "Fig11c_total_energy.png", "densitywise_total_energy.pdf", x_scale=0.01, is_total_energy=True, mode="densitywise")
-    plot_sweep(0, f_nodes, 10, dens_lbl, r"Duty cycle ($\%$)",             "Fig11d_duty_cycle.png",   "densitywise_duty_cycle.pdf", x_scale=0.01, is_duty=True, mode="densitywise")
+    plot_sweep(0, f_nodes, 10, dens_lbl, r"Duty cycle ($\%$)",                    "Fig11d_duty_cycle.png",   "densitywise_duty_cycle.pdf", x_scale=0.01, is_duty=True, mode="densitywise")
 
     f_ch = {0: 200, 3: 61, 4: 1}
     plot_sweep(2, f_ch, 6, "Total channels", rmst_lbl,  "Fig12a_ch_total_sync_time.png", "channelwise_total_time.pdf", is_rmst=True)
