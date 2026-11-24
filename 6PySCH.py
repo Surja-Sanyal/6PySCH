@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # Program:   6PySCH — Discrete-Event 6TiSCH Network Synchronization Simulator
-#            Aligned 1:1 with Contiki-NG Cooja firmware (DEFINE + all 36 schemes)
+#            Aligned 1:1 with Contiki-NG Cooja firmware (DEFINE + all 49 configurations)
 # Outputs:   Statistics/_{prefix}_cooja_stats_.txt, Statistics/_{prefix}_stats_.txt,
-#            Statistics/join_times_N{100,500}_scheme{id}.csv (22-column format)
+#            Statistics/join_times_N{100,500}_scheme{id}.csv (28-column format)
 # Author:    Surja Sanyal
 # Email:     hi.surja06@gmail.com
 # python3 6PySCH.py --mode benchmark --seeds 5
@@ -32,16 +32,24 @@ TRICKLE_I_MIN_S = 2.048
 TRICKLE_I_MAX_S = 16.384
 TRICKLE_K = 3
 
+# Stock Contiki-NG RPL-Lite DIS timing (used when ENABLE_RPL_DIS = 1 on schemes 46..49)
+STOCK_DIS_START_S = 5.0
+STOCK_DIS_INTERVAL_S = 60.0
+
 # 16-entry uint8 LUT for exp(-gamma) scaled by 255 (P_min = 0.15 -> 38/255)
 EXP_LUT = (255, 199, 155, 120, 94, 73, 57, 48, 45, 42, 40, 38, 38, 38, 38, 38)
 
 # Physical IEEE 802.15.4 (250 kbps) & Contiki-NG TSCH airtime constants (us)
 EB_TX_US = 1600
 DIO_TX_US = 2200
+DIS_TX_US = 1200
 IDLE_RX_US = 350     # Contiki-NG early-sleep CCA listen on idle slot 0
 FRAME_RX_US = 1900
 
-# Complete 41-scheme map matching experiments/define-sync/node.c & run_cooja_headless.py
+# Only these three schemes run a 64-entry table check (matching run_cooja_headless.py & plot_results.py)
+VERIFIED_64NBR_SCHEMES = {1, 8, 13}
+
+# Complete 49-scheme map matching experiments/define-sync/node.c & run_cooja_headless.py
 SCHEME_MAP = {
     1:  "p",                  # DEFINE (Full)
     2:  "e",                  # 6TiSCH-MC (1S)
@@ -78,19 +86,27 @@ SCHEME_MAP = {
     33: "idhash_rev",         # ID-Hash + Guard + ADAPT (Reversed Sweep)
     34: "define_rand",        # DEFINE (Random Sweep Order)
     35: "define_late",        # DEFINE (Late Joiners, 20% at t=150s)
-    36: "define_fail",        # DEFINE (10% Relay Failure at t=120s)
+    36: "define_fail",        # DEFINE (10% Relay Shutdown at t=120s)
     37: "define_mixed",       # DEFINE (Mixed 80% DEFINE / 20% Stock RFC 8180)
     38: "define_tierstart",   # DEFINE (Tier-Aware Sweep Start)
     39: "pair_2s",            # Pairing (Tuned 2S)
     40: "trgb_2s",            # TRGB (Tuned 2S)
     41: "define_hoptier_mrm", # DEFINE (Hop-Count Tier, Lossy UDGM 85% PRR)
+    42: "idhash_nonzero",     # ID-Hash Non-Zero {1..C-1} + Guard + ADAPT (Control)
+    43: "idparity_assign",    # Node-ID Parity (u mod 2) + In-Band Hash + Guard + ADAPT
+    44: "pair_adapt",         # Pairing + ADAPT (Grafted, Alg. 1+KA)
+    45: "define_nosweep",     # DEFINE (No Candidate Sweep — Always on (0,0) after sync)
+    46: "define_dis",         # DEFINE (Stock RPL DIS Enabled)
+    47: "pair_dis",           # Pairing (1S, Stock RPL DIS Enabled)
+    48: "ease_dis",           # EASE (Stock RPL DIS Enabled)
+    49: "ebmc_2s_dis",        # EBMC (Tuned 2S, Stock RPL DIS Enabled)
 }
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 
 def compute_constant_density_area(n_nodes, base_nodes=50, base_area=55):
-    """Constant spatial density 1.65e-2 motes/m^2 matching Fig. 7 & run_cooja_headless.py."""
+    """Constant spatial density 1.65e-2 motes/m^2 matching Fig. 8 & run_cooja_headless.py."""
     side = int(round(base_area * math.sqrt(float(n_nodes) / float(base_nodes))))
     if side == 100:
         side = 99
@@ -161,6 +177,16 @@ def compute_subband_offset(nid, tier, n_ch):
     return 2 + 2 * (mix % max(1, half - 1))
 
 
+def compute_nonzero_idhash_offset(nid, n_ch):
+    """Non-zero uniform ID-hash mapper over {1, ..., C-1} (control for Scheme 42, matches node.c)."""
+    if nid <= 1:
+        return 0
+    if n_ch <= 2:
+        return nid % n_ch
+    mix = (((nid * 2654435761) & 0xFFFFFFFF) >> 16) ^ nid
+    return 1 + (mix % (n_ch - 1))
+
+
 def guard_shift_offset(off, allow_zero, n_ch):
     """Local parent-alias guard shift (avoids offset 0 for non-root DEFINE/ASSIGN when C >= 4)."""
     if n_ch <= 2 or allow_zero:
@@ -204,14 +230,18 @@ def simulate_seed(
     poisson_flag = scheme_id in (28, 29, 30)
     late_flag = (scheme_id == 35)
     fail_flag = (scheme_id == 36)
+    dis_flag = scheme_id in (46, 47, 48, 49)
     rx_success = 0.85 if scheme_id in (26, 31, 32, 41) else 1.0
     base_uses_alg1 = (
-        scheme_id == 1 or (14 <= scheme_id <= 28) or (33 <= scheme_id <= 38) or scheme_id == 41
+        scheme_id == 1 or (14 <= scheme_id <= 28) or (33 <= scheme_id <= 38)
+        or (41 <= scheme_id <= 44) or scheme_id == 46
     )
 
     n_tot = n_nodes + 1
     sf_dur_s = sf_len * 0.01
     max_sfs = int(round(timeout_s / sf_dur_s))
+    dis_start_sfs = max(1, int(round(STOCK_DIS_START_S / sf_dur_s)))
+    dis_interval_sfs = max(1, int(round(STOCK_DIS_INTERVAL_S / sf_dur_s)))
 
     # Boot schedule (simultaneous cold-start, conditional Poisson lambda=5/s, or 20% late joiners)
     boot_sf = [0] * (n_tot + 1)
@@ -238,6 +268,7 @@ def simulate_seed(
     join_sf_map = [0] * (n_tot + 1)
     elapsed_sync_slots = [0] * (n_tot + 1)
     elapsed_join_slots = [0] * (n_tot + 1)
+    next_dis_sf = [max_sfs + 1] * (n_tot + 1)
 
     parent = [0] * (n_tot + 1)
     rank = [65535] * (n_tot + 1)
@@ -350,7 +381,7 @@ def simulate_seed(
     for sf_num in range(max_sfs):
         asn_now = sf_num * sf_len
 
-        # Scheme 36: Controlled 10% non-root relay failure at t = 120 s
+        # Scheme 36: Controlled 10% non-root relay shutdown at t = 120 s
         if fail_flag and sf_num == fail_sf:
             for u in range(2, n_tot + 1):
                 if (u % 10) == 2 and not failed[u]:
@@ -369,6 +400,7 @@ def simulate_seed(
 
         eb_senders_by_off = {}
         dio_senders_off0 = []
+        dis_senders_off0 = []
         rx_off_node = {}
 
         # Phase 1: Per-node slot-0 scheduling decision
@@ -383,6 +415,13 @@ def simulate_seed(
                 continue
 
             if not rpl_joined[u] and u != 1:
+                # Stock RPL DIS solicitation on cell (0,0) when enabled (schemes 46..49)
+                if dis_flag and sf_num >= next_dis_sf[u]:
+                    dis_senders_off0.append(u)
+                    next_dis_sf[u] = sf_num + dis_interval_sfs
+                    scan_rx_us[u] += DIS_TX_US
+                    continue
+
                 # Algorithm 1: 3-of-4 base-cell (0,0) DIO reception, 1-of-4 candidate EB sweep
                 in_win = (sync_asn[u] > 0 and (asn_now - sync_asn[u]) < max_win_sfs * sf_len)
                 uses_alg1 = base_uses_alg1 and (not is_mixed_stock)
@@ -430,10 +469,42 @@ def simulate_seed(
             subslots = 1
             ka_allow_zero = False
 
-            if scheme_id in (1, 26, 27, 28, 34, 35, 36, 38):
+            if scheme_id in (1, 26, 27, 28, 34, 35, 36, 38, 45, 46):
                 update_rank_tier_node(u, True, True, False, False)
                 tx_prob_u8 = compute_adapt_q_u8(u, asn_now, join_asn[u], phi[u], nbrs, n_ch, sf_len, True, True, True)
                 enable_ka = True
+            elif scheme_id == 42:  # ID-Hash Non-Zero {1..C-1} + Guard + ADAPT
+                update_rank_tier_node(u, True, True, False, False)
+                pid = parent[u]
+                parent_ch_offset[u] = compute_nonzero_idhash_offset(pid, n_ch)
+                u_off_42 = compute_nonzero_idhash_offset(u, n_ch)
+                if u != 1 and u_off_42 == parent_ch_offset[u]:
+                    u_off_42 = guard_shift_offset(u_off_42, False, n_ch)
+                ch_offset[u] = u_off_42
+                tx_prob_u8 = compute_adapt_q_u8(u, asn_now, join_asn[u], phi[u], nbrs, n_ch, sf_len, True, True, True)
+                enable_ka = True
+            elif scheme_id == 43:  # Node-ID Parity (u mod 2) + In-Band Hash + Guard + ADAPT
+                update_rank_tier_node(u, True, True, False, False)
+                pid = parent[u]
+                p_band = 0 if pid <= 1 else (1 + (pid & 1))
+                u_band = 0 if u == 1 else (1 + (u & 1))
+                parent_ch_offset[u] = compute_subband_offset(pid, p_band, n_ch)
+                u_off_43 = compute_subband_offset(u, u_band, n_ch)
+                if u != 1 and u_off_43 == parent_ch_offset[u]:
+                    u_off_43 = guard_shift_offset(u_off_43, False, n_ch)
+                ch_offset[u] = u_off_43
+                tx_prob_u8 = compute_adapt_q_u8(u, asn_now, join_asn[u], phi[u], nbrs, n_ch, sf_len, True, True, True)
+                enable_ka = True
+            elif scheme_id == 44:  # Pairing + ADAPT (Grafted, Alg. 1+KA)
+                pid = parent[u]
+                half = max(1, n_ch // 2)
+                base_pair = (u // 2) % half
+                p_base = (pid // 2) % half
+                ch_offset[u] = (base_pair + half) % n_ch if (sf_num & 1) else base_pair
+                parent_ch_offset[u] = (p_base + half) % n_ch if (sf_num & 1) else p_base
+                tx_prob_u8 = compute_adapt_q_u8(u, asn_now, join_asn[u], phi[u], nbrs, n_ch, sf_len, True, True, True)
+                enable_ka = True
+                ka_allow_zero = True
             elif scheme_id == 37:
                 if is_mixed_stock:
                     ch_offset[u] = 0
@@ -524,11 +595,11 @@ def simulate_seed(
                 csmj_be = 2 if nbrs > 8 else 1
                 ch_offset[u] = 0
                 tx_prob_u8 = (255 >> csmj_be) // eb_mult
-            elif scheme_id in (8, 30, 32):
+            elif scheme_id in (8, 30, 32, 48):
                 raw_p = (255 // (1 + max(0, nbrs))) // eb_mult
                 ch_offset[u] = ((u * 2654435761) & 0xFFFFFFFF) % n_ch
                 tx_prob_u8 = 1 if raw_p < 1 else raw_p
-            elif scheme_id in (9, 39):
+            elif scheme_id in (9, 39, 47):
                 half = max(1, n_ch // 2)
                 base_pair = (u // 2) % half
                 ch_offset[u] = (base_pair + half) % n_ch if (sf_num & 1) else base_pair
@@ -536,7 +607,7 @@ def simulate_seed(
             elif scheme_id in (10, 31):
                 ch_offset[u] = ((u % max(1, n_ch // 2)) * 2) % n_ch
                 tx_prob_u8 = 128 // eb_mult
-            elif scheme_id in (13, 29):
+            elif scheme_id in (13, 29, 49):
                 ch_offset[u] = ((u % max(1, n_ch // 2)) * 2) % n_ch
                 tx_prob_u8 = 64
 
@@ -624,8 +695,9 @@ def simulate_seed(
                     coll_cross += sub_u
 
         dio_set = set(dio_senders_off0)
+        dis_set = set(dis_senders_off0)
         eb_sets_by_off = {off: {u for u, _ in sl} for off, sl in eb_senders_by_off.items()}
-        off0_senders = dio_set | eb_sets_by_off.get(0, set())
+        off0_senders = dio_set | dis_set | eb_sets_by_off.get(0, set())
 
         # Phase 3: Reception for unassociated scanning pledges
         if eb_sets_by_off:
@@ -643,6 +715,8 @@ def simulate_seed(
                             if sync_asn[u] == 0:
                                 sync_asn[u] = asn_now if asn_now > 0 else 1
                                 elapsed_sync_slots[u] = (sf_num - boot_sf[u]) * sf_len
+                                if dis_flag:
+                                    next_dis_sf[u] = sf_num + rng.randint(1, dis_start_sfs)
                             parent[u] = sender
                             last_sync_sf[u] = sf_num
                             try_add_nbr(u, sender)
@@ -658,12 +732,14 @@ def simulate_seed(
                                 if sync_asn[u] == 0:
                                     sync_asn[u] = asn_now if asn_now > 0 else 1
                                     elapsed_sync_slots[u] = (sf_num - boot_sf[u]) * sf_len
+                                    if dis_flag:
+                                        next_dis_sf[u] = sf_num + rng.randint(1, dis_start_sfs)
                                 parent[u] = sender
                                 last_sync_sf[u] = sf_num
                                 try_add_nbr(u, sender)
                                 cand_rank[u][sender] = (rank[sender], match_off, cached_tier[sender])
 
-        # Phase 4: Reception for associated nodes (Alg. 1 sweep, DIO join, State-1 KA, parent switch)
+        # Phase 4: Reception for associated nodes (Alg. 1 sweep, DIO join, DIS Trickle reset, State-1 KA, parent switch)
         for u, r_off in rx_off_node.items():
             if r_off == 0:
                 tx_here = adj[u] & off0_senders
@@ -680,7 +756,9 @@ def simulate_seed(
                 if sender == parent[u]:
                     last_sync_sf[u] = sf_num
                     sync_wait_cnt[u] = 0
-                if sender in dio_set:
+                if sender in dis_set and rpl_joined[u]:
+                    reset_trickle(u, sf_num)
+                elif sender in dio_set:
                     if rpl_joined[u]:
                         trickle_c[u] += 1
                     if not try_add_nbr(u, sender):
@@ -778,7 +856,7 @@ def simulate_seed(
     eb_rate = float(sum(eb_cnt[1:])) / float(max(1, sum(active_sfs[1:])))
     coll_total = coll_tree + coll_sib + coll_cross
 
-    # Real neighbor-table occupancy percentiles & M1 wavefront inputs at join time (cols 23..28)
+    # Real neighbor-table occupancy percentiles & Eq. (17) scan inputs at join time (cols 23..28)
     nbr_vals = np.array([len(nbr_table[u]) for u in joined_ids], dtype=float)
     nbr_p50 = float(np.percentile(nbr_vals, 50)) if len(nbr_vals) > 0 else 0.0
     nbr_p95 = float(np.percentile(nbr_vals, 95)) if len(nbr_vals) > 0 else 0.0
@@ -840,22 +918,23 @@ def build_task_list(mode, seeds, schemes, nbr_cap, timeout_s, atp_subslots):
         sweep_schemes = [sid for sid in schemes if sid <= 8]
         for sid in sweep_schemes:
             for n in range(50, 501, 50):
-                add_cfg(sid, n, None, 16, 61, 1, nbr_cap)   # Fig. 7 (constant density)
-                add_cfg(sid, n, 100, 16, 61, 1, nbr_cap)    # Figs. 8-9 (spatial density)
-                if n in (100, 500):
-                    add_cfg(sid, n, 100, 16, 61, 1, 64)     # Table IV 64-entry benchmark
+                add_cfg(sid, n, None, 16, 61, 1, nbr_cap)   # Fig. 8 (constant density)
+                add_cfg(sid, n, 100, 16, 61, 1, nbr_cap)    # Figs. 9-10 (spatial density)
+                if n in (100, 500) and sid in VERIFIED_64NBR_SCHEMES:
+                    add_cfg(sid, n, 100, 16, 61, 1, 64)     # 64-entry verification
             for ch in (2, 4, 6, 8, 10, 12, 14):
-                add_cfg(sid, 200, None, ch, 61, 1, nbr_cap) # Fig. 10 (channels)
+                add_cfg(sid, 200, None, ch, 61, 1, nbr_cap) # Fig. 11 (channels)
             for sf in (23, 31, 41, 53, 73, 83, 97, 101):
-                add_cfg(sid, 200, None, 16, sf, 1, nbr_cap) # Fig. 11 (slotframe)
+                add_cfg(sid, 200, None, 16, sf, 1, nbr_cap) # Fig. 12 (slotframe)
             for eb in (2, 3, 4, 5, 6, 7, 8):
-                add_cfg(sid, 200, None, 16, 61, eb, nbr_cap)# Fig. 12 (EB multiplier)
+                add_cfg(sid, 200, None, 16, 61, eb, nbr_cap)# Fig. 13 (EB multiplier)
 
     if mode in ("benchmark", "full"):
         for sid in schemes:
             for n in (100, 500):
                 add_cfg(sid, n, 100, 16, 61, 1, nbr_cap)
-                add_cfg(sid, n, 100, 16, 61, 1, 64)
+                if sid in VERIFIED_64NBR_SCHEMES:
+                    add_cfg(sid, n, 100, 16, 61, 1, 64)
             if sid == 37:
                 add_cfg(37, 200, 100, 16, 61, 1, nbr_cap)
 
@@ -864,13 +943,13 @@ def build_task_list(mode, seeds, schemes, nbr_cap, timeout_s, atp_subslots):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="6PySCH — Discrete-event 6TiSCH simulator aligned with Contiki-NG Cooja (41 schemes, 28 columns)"
+        description="6PySCH — Discrete-event 6TiSCH simulator aligned with Contiki-NG Cooja (49 schemes, 28 columns)"
     )
     parser.add_argument("--mode", choices=["benchmark", "sweeps", "full"], default="benchmark",
-                        help="benchmark: Table IV (N=100,500 Cap=16,64); sweeps: Figs 7-12; full: everything")
+                        help="benchmark: Tables IV-V (N=100,500); sweeps: Figs 8-13; full: everything")
     parser.add_argument("--seeds", type=int, default=DEFAULT_SEEDS, help="Number of paired seeds (default: 5)")
     parser.add_argument("--schemes", type=str, default="all",
-                        help="Comma-separated scheme IDs (e.g. '1,2,8,13') or 'all' (1..41)")
+                        help="Comma-separated scheme IDs (e.g. '1,2,8,13') or 'all' (1..49)")
     parser.add_argument("--nbr-cap", type=int, default=DEFAULT_NBR_CAP, help="Default neighbor table cap (default: 16)")
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_S, help="Simulation horizon in seconds (default: 300)")
     parser.add_argument("--atp-subslots", type=int, default=DEFAULT_ATP_SUBSLOTS, help="ATP subslots for scheme 5 (default: 2)")

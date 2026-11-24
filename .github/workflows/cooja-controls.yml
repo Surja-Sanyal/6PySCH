@@ -160,35 +160,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Measure Exact Compiled ROM (.text) & RAM (.bss/.data) Footprint
-        run: |
-          mkdir -p /home/user Results
-          rm -rf /home/user/contiki-ng
-          ln -sfn "$GITHUB_WORKSPACE/contiki-ng-define" /home/user/contiki-ng
-          cd experiments/define-sync
-          {
-            echo "=== Compiled Binary Size Audit (DEFINE SYNC_SCHEME=1 vs 6TiSCH-MC 1S SYNC_SCHEME=2) ==="
-            for tgt in cooja z1 cc2538dk; do
-              echo "--- TARGET=$tgt ---"
-              make clean >/dev/null 2>&1 || true
-              if make -j4 TARGET=$tgt SYNC_SCHEME=1 >/dev/null 2>&1; then
-                BIN1=$(ls -1 build/$tgt/node.* 2>/dev/null | head -n 1)
-                SZ1=$(size "$BIN1" 2>/dev/null || msp430-size "$BIN1" 2>/dev/null || arm-none-eabi-size "$BIN1" 2>/dev/null || true)
-                make clean >/dev/null 2>&1 || true
-                make -j4 TARGET=$tgt SYNC_SCHEME=2 >/dev/null 2>&1 || true
-                BIN2=$(ls -1 build/$tgt/node.* 2>/dev/null | head -n 1)
-                SZ2=$(size "$BIN2" 2>/dev/null || msp430-size "$BIN2" 2>/dev/null || arm-none-eabi-size "$BIN2" 2>/dev/null || true)
-                echo "DEFINE (Scheme 1):"
-                echo "$SZ1"
-                echo "6TiSCH-MC 1S (Scheme 2):"
-                echo "$SZ2"
-              else
-                echo "Target $tgt toolchain not installed in container"
-              fi
-            done
-          } > "$GITHUB_WORKSPACE/Results/rom_footprint.txt"
-          cat "$GITHUB_WORKSPACE/Results/rom_footprint.txt"
-
       - name: Download New Control Artifacts
         uses: actions/download-artifact@v4
         with:
@@ -268,7 +239,6 @@ jobs:
           name: FINAL-MERGED-COOJA-RESULTS
           path: |
             Statistics/
-            *.png
             Plots/
             Results/
 
@@ -277,7 +247,6 @@ jobs:
           rm -rf tmp_artifacts /tmp/new_results
           mkdir -p /tmp/new_results
           cp -a Statistics Plots Results /tmp/new_results/ 2>/dev/null || true
-          cp -a *.png /tmp/new_results/ 2>/dev/null || true
 
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config user.name "github-actions[bot]"
@@ -286,9 +255,11 @@ jobs:
           git checkout -f -B main origin/main
           git clean -fd
 
+          rm -rf Statistics Plots Results
+          rm -f ./*.png
           cp -a /tmp/new_results/* . 2>/dev/null || true
           rm -rf /tmp/new_results
 
+          git ls-files '*.png' | awk 'index($0,"/")==0' | xargs -r git rm -f --
           git add -A Statistics/ Plots/ Results/
-          find . -maxdepth 2 -name "*.png" -exec git add {} + 2>/dev/null || true
-          git diff --staged --quiet || (git commit -m "Merge Round-7 control & DIS sensitivity runs, ROM audit, and updated plots" && git push origin main)
+          git diff --staged --quiet || (git commit -m "Merge Round-7 control & DIS sensitivity runs and regenerate clean plots" && git push origin main)

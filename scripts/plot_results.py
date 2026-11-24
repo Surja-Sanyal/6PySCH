@@ -162,8 +162,7 @@ def save_standalone_legend():
         columnspacing=1.1,
     )
     plt.axis("off")
-    for p in [os.path.join(ROOT_DIR, "legend_only.png"), os.path.join(PLOTS_DIR, "legend_only.png")]:
-        fig.savefig(p, dpi=600, bbox_inches="tight", pad_inches=0.03)
+    fig.savefig(os.path.join(PLOTS_DIR, "legend_only.png"), dpi=600, bbox_inches="tight", pad_inches=0.03)
     fig.savefig(os.path.join(RESULTS_DIR, "legend_only.pdf"), format="pdf", bbox_inches="tight", pad_inches=0.03)
     plt.close(fig)
 
@@ -703,8 +702,7 @@ def plot_sweep(
     ax.ticklabel_format(style="plain", useOffset=False)
     ax.grid(True, linestyle="--", alpha=0.45)
     fig.tight_layout(pad=0.25)
-    for out_dir in [ROOT_DIR, PLOTS_DIR]:
-        fig.savefig(os.path.join(out_dir, png_name), dpi=300, bbox_inches="tight", pad_inches=0.02)
+    fig.savefig(os.path.join(PLOTS_DIR, png_name), dpi=300, bbox_inches="tight", pad_inches=0.02)
     if pdf_name:
         fig.savefig(os.path.join(RESULTS_DIR, pdf_name), format="pdf", bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)

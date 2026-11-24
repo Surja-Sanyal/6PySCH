@@ -55,18 +55,14 @@ jobs:
         with:
           name: UPDATED-PLOTS-AND-RESULTS
           path: |
-            *.png
             Plots/
             Results/
-            Results/table_iv_real.tex
-            Results/table_v_real.tex
 
       - name: Auto-Commit Clean Statistics, Tables, and Plots
         run: |
           rm -rf tmp_artifacts /tmp/new_results
           mkdir -p /tmp/new_results
           cp -a Statistics Plots Results /tmp/new_results/ 2>/dev/null || true
-          cp -a *.png /tmp/new_results/ 2>/dev/null || true
 
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           git config user.name "github-actions[bot]"
@@ -76,9 +72,10 @@ jobs:
           git clean -fd
 
           rm -rf Statistics Plots Results
+          rm -f ./*.png
           cp -a /tmp/new_results/* . 2>/dev/null || true
           rm -rf /tmp/new_results
 
+          git ls-files '*.png' | awk 'index($0,"/")==0' | xargs -r git rm -f --
           git add -A Statistics/ Plots/ Results/
-          find . -maxdepth 2 -name "*.png" -exec git add {} + 2>/dev/null || true
-          git diff --staged --quiet || (git commit -m "Purge stale 5-seed 64nbr files and regenerate clean 30-seed tables, CSV, and plots" && git push origin main)
+          git diff --staged --quiet || (git commit -m "Remove root PNGs and keep clean 30-seed plots and tables in Plots/ and Results/" && git push origin main)
